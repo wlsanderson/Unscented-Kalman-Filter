@@ -5,7 +5,7 @@ requires-python = ">=3.13"
 version = "1.0.0"
 readme = "README.md"
 dependencies = [
-    "numpy"
+    "numpy>=2.2.4",
 ]
 
 [build-system]
@@ -19,4 +19,3 @@ packages = ["UKF"]
 # UV:
 [tool.uv]
 python-preference = "only-managed"
-managed-dependencies = true

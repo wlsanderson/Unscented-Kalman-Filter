@@ -1,0 +1,22 @@
+[project]
+name = "Unscented-Kalman-Filter"
+description = "UKF prototyping in Python"
+requires-python = ">=3.13"
+version = "1.0.0"
+readme = "README.md"
+dependencies = [
+    "numpy"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# HATCH:
+[tool.hatch.build.targets.wheel]
+packages = ["UKF"]
+
+# UV:
+[tool.uv]
+python-preference = "only-managed"
+managed-dependencies = true

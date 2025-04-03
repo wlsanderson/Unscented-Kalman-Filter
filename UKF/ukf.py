@@ -1,9 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from sigma_points import SigmaPoints
+from UKF.sigma_points import SigmaPoints
 
 
 class UKF:
@@ -18,12 +16,12 @@ class UKF:
         "_dim_x",
         "_dim_z",
         "_sigma_points_class",
-        "_sum_sigmas",
+        "_num_sigmas",
         "_sigmas_f",
         "_sigmas_h",
     )
 
-    def __init__(self, dim_x: int, dim_z: int, points: "SigmaPoints"):
+    def __init__(self, dim_x: int, dim_z: int, points: SigmaPoints):
         self.X = np.zeros(dim_x)
         self.F = None
         self.P = None

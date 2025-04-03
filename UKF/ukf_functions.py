@@ -1,11 +1,11 @@
-from constants import GRAVITY, DRAG_COEFFICIENT, ROCKET_MASS, REFERENCE_AREA, AIR_DENSITY
+from UKF.constants import GRAVITY, DRAG_COEFFICIENT, ROCKET_MASS, REFERENCE_AREA, AIR_DENSITY
 import numpy as np
 import numpy.typing as npt
 
-def measurement_function(sigmas):
+def measurement_function(sigmas, init_alt):
     acc = sigmas[2]
     acc_measurement = -acc / GRAVITY
-    alt_measurement = sigmas[0]
+    alt_measurement = sigmas[0] + init_alt
     return np.array([alt_measurement, acc_measurement])
 
 def base_state_transition(sigmas, dt, drag_option: bool = False) -> npt.NDArray:

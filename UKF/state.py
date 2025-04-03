@@ -3,8 +3,9 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 import numpy as np
+import numpy.typing as npt
 
-from constants import (
+from UKF.constants import (
     STATE_DIM,
     GROUND_ALTITUDE_METERS,
     LANDED_ACCELERATION_GS,
@@ -12,11 +13,12 @@ from constants import (
     MAX_VELOCITY_THRESHOLD,
     TAKEOFF_ACCELERATION_GS,
     StateProcessCovariance,
+    StateMeasurementNoise,
 )
 
 if TYPE_CHECKING:
-    from context import Context
-from ukf_functions import base_state_transition
+    from UKF.context import Context
+from UKF.ukf_functions import base_state_transition
 
 
 
@@ -48,7 +50,8 @@ class State(ABC):
 
     @property
     @abstractmethod
-    def rvar(self) -> npt.NDArray
+    def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
+        """Measurement noise covariance diagonals defined in each state subclass"""
 
     @abstractmethod
     def update(self):
@@ -69,12 +72,6 @@ class State(ABC):
         State transition function for Unscented Kalman Filter
         """
     
-    @abstractmethod
-    def measurement_noise_function(self):
-        """
-        Measurement noise function
-        """
-    
     def process_covariance_function(self, dt):
         """
         Process noise covariance matrix
@@ -93,6 +90,15 @@ class StandbyState(State):
 
     __slots__ = ()
 
+    @property
+    def qvar(self) -> np.float64:
+        return StateProcessCovariance.STANDBY.value
+    
+    @property
+    def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
+        return StateMeasurementNoise.STANDBY.matrix
+
+
     def update(self):
         """
         Checks if the rocket has launched, based on our velocity.
@@ -110,12 +116,6 @@ class StandbyState(State):
     def state_transition_function(self, sigma_points, dt):
         return base_state_transition(sigma_points, dt, drag_option=False)
 
-    def process_covariance_function(self, dt):
-        
-    
-    def measurement_noise_function(self):
-        return super().measurement_noise_function()
-
 
 
 class MotorBurnState(State):
@@ -124,6 +124,15 @@ class MotorBurnState(State):
     """
 
     __slots__ = ()
+
+    @property
+    def qvar(self) -> np.float64:
+        return StateProcessCovariance.MOTOR_BURN.value
+    
+    @property
+    def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
+        return StateMeasurementNoise.MOTOR_BURN.matrix
+
 
     def __init__(self, context: "Context"):
         super().__init__(context)
@@ -145,12 +154,26 @@ class MotorBurnState(State):
     def next_state(self):
         self.context.state = CoastState(self.context)
 
+    def state_transition_function(self, sigma_points, dt):
+        return base_state_transition(sigma_points, dt, drag_option=True)
+
+
 
 class CoastState(State):
     """
     When the motor has burned out and the rocket is coasting to apogee.
     """
 
+    __slots__ = ()
+
+    @property
+    def qvar(self) -> np.float64:
+        return StateProcessCovariance.COAST.value
+    
+    @property
+    def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
+        return StateMeasurementNoise.COAST.matrix
+    
     def __init__(self, context: "Context"):
         super().__init__(context)
 
@@ -171,11 +194,24 @@ class CoastState(State):
     def next_state(self):
         self.context.state = FreeFallState(self.context)
 
+    def state_transition_function(self, sigma_points, dt):
+        return base_state_transition(sigma_points, dt, drag_option=True)
+
+
 
 class FreeFallState(State):
     """
     When the rocket is falling back to the ground after apogee.
     """
+
+    @property
+    def qvar(self) -> np.float64:
+        return StateProcessCovariance.FREEFALL.value
+    
+    @property
+    def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
+        return StateMeasurementNoise.FREEFALL.matrix
+
 
     __slots__ = ()
 
@@ -198,11 +234,24 @@ class FreeFallState(State):
     def next_state(self):
         self.context.state = LandedState(self.context)
 
+    def state_transition_function(self, sigma_points, dt):
+        return base_state_transition(sigma_points, dt, drag_option=False)
+
+
 
 class LandedState(State):
     """
     When the rocket has landed.
     """
+
+    @property
+    def qvar(self) -> np.float64:
+        return StateProcessCovariance.LANDED.value
+    
+    @property
+    def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
+        return StateMeasurementNoise.LANDED.matrix
+
 
     __slots__ = ()
 
@@ -212,3 +261,7 @@ class LandedState(State):
     def next_state(self):
         # Explicitly do nothing, there is no next state
         pass
+
+    def state_transition_function(self, sigma_points, dt):
+        return base_state_transition(sigma_points, dt, drag_option=False)
+

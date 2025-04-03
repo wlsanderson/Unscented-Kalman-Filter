@@ -33,19 +33,16 @@ class UKF:
         
         self._sigma_points_class  = points
         self._num_sigmas = self._sigma_points_class.num_sigmas()
-        self._sigmas_f = None
-        self._sigmas_h = None
+        self._sigmas_f = np.zeros([self._num_sigmas, dim_x])
+        self._sigmas_h = np.zeros([self._num_sigmas, dim_z])
 
-    def predict(self, dt, **F_args):
-        n = len(self.X)
+    def predict(self, dt):
         self.compute_process_sigmas(dt)
-        self._sigmas_f = np.zeros([len(self.sigmas), n])
-
         self.X, self.P = self._unscented_transform(
-            self._sigmas_f,
-            self._sigma_points_class.Wm,
-            self._sigma_points_class.Wc,
-            self.Q,
+            sigmas = self._sigmas_f,
+            Wm = self._sigma_points_class.Wm,
+            Wc = self._sigma_points_class.Wc,
+            noise_cov = self.Q(dt)
         )
 
     def update(self, z, **H_args):
@@ -67,9 +64,8 @@ class UKF:
         self.X = self.X + np.dot(kalman_gain, residual)
         self.P = self.P - np.dot(kalman_gain, np.dot(innovation_cov, kalman_gain.T))
 
-
-    def _unscented_transform(sigmas: npt.NDArray, Wm, Wc, noise_cov = None):
-        kmax, n = sigmas.shape
+    @staticmethod
+    def _unscented_transform(sigmas: npt.NDArray[np.float64], Wm, Wc, noise_cov = None):
         x_mean = np.dot(Wm, sigmas)
         residual = sigmas - x_mean[np.newaxis, :]
         P_covariance = np.dot(residual.T, np.dot(np.diag(Wc), residual))
@@ -81,7 +77,7 @@ class UKF:
     def compute_process_sigmas(self, dt, **F_args):
         sigmas = self._sigma_points_class.calculate_sigma_points(self.X, self.P)
         for i, s in enumerate(sigmas):
-            self._sigmas_f[i] = self.F(s, dt **F_args)
+            self._sigmas_f[i] = self.F(s, dt, F_args)
 
     def _calculate_cross_cov(self, x, z):
         P_cross_cov = np.zeros((self._sigmas_f.shape[1], self._sigmas_h.shape[1]))
@@ -91,5 +87,3 @@ class UKF:
             dz = np.subtract(self._sigmas_h[i], z)
             P_cross_cov += self._sigma_points_class.Wc[i] * np.outer(dx, dz)
         return P_cross_cov
-
-

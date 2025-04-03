@@ -15,7 +15,7 @@ class DataProcessor:
         "_iterator",
     )
 
-    def __init__(self, launch_log: Path):
+    def __init__(self, launch_log: Path, cutoff = None):
         self._headers: pd.DataFrame = pd.read_csv(launch_log, nrows=0)
         self._needed_measurements = list(
             (set(MEASUREMENT_FIELDS) | set([TIMESTAMP_COL_NAME])) & set(self._headers.columns)
@@ -27,7 +27,9 @@ class DataProcessor:
         field_order.insert(0, TIMESTAMP_COL_NAME)
         self._df = self._df[field_order]
         self._headers = self._headers[field_order]
-
+        if cutoff is not None:
+            self._df = self._df.head(cutoff)
+            print(self._df.size)
         self._iterator = self._df.iterrows()
 
         

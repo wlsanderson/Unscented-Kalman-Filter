@@ -17,10 +17,13 @@ class SigmaPoints:
         self._alpha = alpha
         self._beta = beta
         self._kappa = kappa
-        self._compute_weights()
 
         self.Wm: npt.NDArray = None
         self.Wc: npt.NDArray = None
+
+        self._compute_weights()
+
+        
 
 
     def _compute_weights(self) -> None:
@@ -38,7 +41,7 @@ class SigmaPoints:
         n = len(X)
         lambda_ = self._alpha**2 * (n + self._kappa) - n
         scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + n)*(P), upper=True)
-        sigmas = np.zeros(2 * n + 1, n)
+        sigmas = np.zeros([2 * n + 1, n])
         sigmas[0] = X
         for i in range(n):
             sigmas[i+1] = np.subtract(X, -scaled_cholesky_sqrt[i])

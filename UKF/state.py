@@ -42,6 +42,8 @@ class State(ABC):
         :param context: The Airbrakes Context managing the state machine.
         """
         self.context = context
+        self.context.ukf.F = self.state_transition_function
+        self.context.ukf.Q = self.process_covariance_function
 
     @property
     @abstractmethod
@@ -67,7 +69,7 @@ class State(ABC):
         """
 
     @abstractmethod
-    def state_transition_function(self, sigma_points, dt):
+    def state_transition_function(self, sigma_points, dt, *F_args):
         """
         State transition function for Unscented Kalman Filter
         """
@@ -113,8 +115,8 @@ class StandbyState(State):
     def next_state(self):
         self.context.state = MotorBurnState(self.context)
 
-    def state_transition_function(self, sigma_points, dt):
-        return base_state_transition(sigma_points, dt, drag_option=False)
+    def state_transition_function(self, sigma_points, dt, *F_args):
+        return base_state_transition(sigma_points, dt, False, F_args)
 
 
 
@@ -154,8 +156,8 @@ class MotorBurnState(State):
     def next_state(self):
         self.context.state = CoastState(self.context)
 
-    def state_transition_function(self, sigma_points, dt):
-        return base_state_transition(sigma_points, dt, drag_option=True)
+    def state_transition_function(self, sigma_points, dt, **F_args):
+        return base_state_transition(sigma_points, dt, True, F_args)
 
 
 
@@ -194,8 +196,8 @@ class CoastState(State):
     def next_state(self):
         self.context.state = FreeFallState(self.context)
 
-    def state_transition_function(self, sigma_points, dt):
-        return base_state_transition(sigma_points, dt, drag_option=True)
+    def state_transition_function(self, sigma_points, dt, **F_args):
+        return base_state_transition(sigma_points, dt, True, F_args)
 
 
 
@@ -234,8 +236,8 @@ class FreeFallState(State):
     def next_state(self):
         self.context.state = LandedState(self.context)
 
-    def state_transition_function(self, sigma_points, dt):
-        return base_state_transition(sigma_points, dt, drag_option=False)
+    def state_transition_function(self, sigma_points, dt, **F_args):
+        return base_state_transition(sigma_points, dt, False, F_args)
 
 
 
@@ -262,6 +264,6 @@ class LandedState(State):
         # Explicitly do nothing, there is no next state
         pass
 
-    def state_transition_function(self, sigma_points, dt):
-        return base_state_transition(sigma_points, dt, drag_option=False)
+    def state_transition_function(self, sigma_points, dt, **F_args):
+        return base_state_transition(sigma_points, dt, False, F_args)
 

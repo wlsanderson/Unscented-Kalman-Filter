@@ -1,13 +1,13 @@
 from UKF.context import Context
-from UKF.logger import Logger
+from UKF.plotter import Plotter
 from UKF.data_processor import DataProcessor
 from pathlib import Path
 
 def run():
     launch_log = Path("launch_data/pelicanator_launch_2.csv")
-    logger = Logger()
-    data_processor = DataProcessor(launch_log, logger=logger)
-    context = Context(data_processor)
+    plotter = Plotter()
+    data_processor = DataProcessor(launch_log, cutoff = 200)
+    context = Context(data_processor, plotter=plotter)
     run_data_loop(context)
 
 def run_data_loop(context):

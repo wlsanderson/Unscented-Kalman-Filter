@@ -14,7 +14,7 @@ class DataProcessor:
         "_iterator",
     )
 
-    def __init__(self, launch_log: Path, minrow = None, maxrow = None):
+    def __init__(self, launch_log: Path, min_r = None, max_r = None):
         self._headers: pd.DataFrame = pd.read_csv(launch_log, nrows=0)
         self._needed_measurements = list(
             (set(MEASUREMENT_FIELDS) | set([TIMESTAMP_COL_NAME])) & set(self._headers.columns)
@@ -26,11 +26,11 @@ class DataProcessor:
         field_order.insert(0, TIMESTAMP_COL_NAME)
         self._df = self._df[field_order]
         self._headers = self._headers[field_order]
-        if maxrow is not None:
-            self._df = self._df.loc[:maxrow]
+        if max_r is not None:
+            self._df = self._df.loc[:max_r]
             
-        if minrow is not None:
-            self._df = self._df.loc[minrow:]
+        if min_r is not None:
+            self._df = self._df.loc[min_r:]
         self._iterator = self._df.itertuples(index=False, name=None)
 
 
@@ -46,7 +46,7 @@ class DataProcessor:
     def get_initial_vals(self):
         initial_vals = np.full(len(MEASUREMENT_FIELDS) + 1, None, dtype=object)
         i = self._df.head(1).index[0]
-        while any(val is None for val in initial_vals) and i < len(self._df):
+        while any(val is None for val in initial_vals) and i < self._df.index[-1]:
             row = self._df.loc[i].values
             for col_index, val in enumerate(row):
                 if initial_vals[col_index] is None and pd.notna(val):

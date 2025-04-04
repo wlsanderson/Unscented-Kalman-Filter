@@ -40,9 +40,9 @@ class Context:
         )
         self.data_processor: DataProcessor = data_processor
         self._plotter: Plotter = plotter
+        self._last: npt.NDArray[np.float64] = data_processor.get_initial_vals()
         self._flight_state: State = StandbyState(self)
         self.shutdown_requested: bool = False
-        self._last: npt.NDArray[np.float64] = data_processor.get_initial_vals()
         self._dt: np.float64 = 0.0
         self._initial_altitude: np.float64 = self._last[1]
         self._max_velocity = 0.0
@@ -96,11 +96,18 @@ class Context:
 
         # set the null values to the last actual non-null values recorded
         data[nulls] = self._last[nulls]
-        self._dt = (data[0] - self._last[0]) / 1e9
-        self._last = data
+
+        # dont calculate dt unless a ukf update will happen
+        if (any(var != 1e9 for var in z_noise)):
+            self._dt = (data[0] - self._last[0]) / 1e9
+            self._last = data
         return z_noise
     
     def set_ukf_functions(self): 
         self.ukf.F = self._flight_state.state_transition_function
         self.ukf.Q = self._flight_state.process_covariance_function
+
+    def set_state_time(self):
+        if self._plotter:
+            self._plotter.state_times.append(self._last[0])
 

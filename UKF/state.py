@@ -44,6 +44,10 @@ class State(ABC):
         self.context = context
         self.context.ukf.F = self.state_transition_function
         self.context.ukf.Q = self.process_covariance_function
+        
+
+        # standby state init will add to this, but first state change timestamp is removed before plotting
+        self.context.set_state_time() 
 
     @property
     @abstractmethod
@@ -138,6 +142,7 @@ class MotorBurnState(State):
 
     def __init__(self, context: "Context"):
         super().__init__(context)
+        self.context.ukf.P = np.add(self.context.ukf.P, 0.01)
 
     def update(self):
         """Checks to see if the velocity has decreased lower than the maximum velocity, indicating
@@ -148,7 +153,9 @@ class MotorBurnState(State):
         # accelerating. This is the same thing as checking if our accel sign has flipped
         # We make sure that it is not just a temporary fluctuation by checking if the velocity is a
         # bit less than the max velocity
-        if self.context.ukf.X[1] < self.context._max_velocity * MAX_VELOCITY_THRESHOLD:
+        if (self.context.ukf.X[1] < self.context._max_velocity * MAX_VELOCITY_THRESHOLD) and (
+            self.context._max_velocity > 20
+        ):
             self.next_state()
             return
 
@@ -178,6 +185,7 @@ class CoastState(State):
     
     def __init__(self, context: "Context"):
         super().__init__(context)
+        self.context.ukf.P = np.add(self.context.ukf.P, 0.01)
 
     def update(self):
         """Checks to see if the rocket has reached apogee, indicating the start of free fall."""
@@ -255,6 +263,9 @@ class LandedState(State):
 
 
     __slots__ = ()
+
+    def __init__(self, context: "Context"):
+        super().__init__(context)
 
     def update(self):
         pass

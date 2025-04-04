@@ -6,6 +6,13 @@ from enum import Enum
 STATE_DIM = 3
 INITIAL_STATE_ESTIMATE = np.array([0.0, 0.0, 9.8]) #alt, vel_z, acc_z
 
+class States(Enum):
+    """Represents the state names and associated index of state vector"""
+    ALTITUDE = 0
+    VELOCITY = 1
+    ACCELERATION = 2
+
+
 # initial state covariance
 INITIAL_STATE_COV = np.diag([1.0, 1.0, 0.1])
 
@@ -18,7 +25,7 @@ class StateProcessCovariance(Enum):
 
     STANDBY = 1e-6
     MOTOR_BURN= 1e6
-    COAST = 1
+    COAST = 1e-4
     FREEFALL = 10
     LANDED = 1e-6
 
@@ -28,8 +35,8 @@ class StateMeasurementNoise(Enum):
 
     STANDBY = ([0.44025, 0.571041128017971e-5],)
     MOTOR_BURN = ([70, 0.002],)
-    COAST = ([0.04275, 2.17e-4],)
-    FREEFALL = ([0.04275, 2.17e-4],)
+    COAST = ([0.04, 2.17e-4],)
+    FREEFALL = ([0.04, 2.17e-4],)
     LANDED = ([0.44025, 0.571041128017971e-5],)
 
     @property
@@ -60,3 +67,4 @@ DRAG_COEFFICIENT = 0.45
 
 # log files
 TIMESTAMP_COL_NAME = "timestamp"
+LOG_HEADER_STATES = {0: "current_altitude", 1: "vertical_velocity", 2: "scaledAccelZ"}

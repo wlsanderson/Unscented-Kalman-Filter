@@ -4,17 +4,25 @@ from enum import Enum
 
 # state vector constants
 STATE_DIM = 3
-INITIAL_STATE_ESTIMATE = np.array([0.0, 0.0, 9.8]) #alt, vel_z, acc_z
+"""Altitude, Vertical Velocity, Vertical Acceleration, qw, qx, qy, qz, Gyro X, Gyro Y, Gyro Z"""
+INITIAL_STATE_ESTIMATE = np.array([0.0, 0.0, 9.8, 1.0, 0, 0, 0, 0, 0, 0])
 
 class States(Enum):
     """Represents the state names and associated index of state vector"""
     ALTITUDE = 0
     VELOCITY = 1
     ACCELERATION = 2
+    QUAT_W = 3
+    QUAT_X = 4
+    QUAT_Y = 5
+    QUAT_Z = 6
+    GYRO_X = 7
+    GYRO_Y = 8
+    GYRO_Z = 9
 
 
 # initial state covariance
-INITIAL_STATE_COV = np.diag([1.0, 1.0, 0.1])
+INITIAL_STATE_COV = np.diag([1.0, 1.0, 0.1, 1e6, 1e6, 1e6, 1e6, 0.1, 0.1, 0.1])
 
 # measurement vector constants
 MEASUREMENT_DIM = 2

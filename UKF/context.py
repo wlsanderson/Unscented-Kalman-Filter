@@ -21,6 +21,9 @@ class Context:
         "_flight_state",
         "_dt",
         "_initial_altitude",
+        "_max_altitude",
+        "_max_velocity",
+        "measurement",
     )
 
     def __init__(self, data_processor: DataProcessor, plotter: Plotter | None = None):
@@ -42,6 +45,8 @@ class Context:
         self._last: npt.NDArray[np.float64] = data_processor.get_initial_vals()
         self._dt: np.float64 = 0.0
         self._initial_altitude: np.float64 = self._last[1]
+        self._max_velocity = 0.0
+        self._max_altitude = 0.0
 
         self.initialize_filter_settings()
         
@@ -50,7 +55,7 @@ class Context:
         self.ukf.P = INITIAL_STATE_COV.copy()
         self.ukf.H = measurement_function
 
-    def update(self, exclude_repeated_vals: bool = False):
+    def update(self):
         data = self.data_processor.fetch()
         if data is None:
             # end of file
@@ -60,13 +65,18 @@ class Context:
             return
         measurement_noise_diag = self._get_measurement_noise(data, exclude_repeated_vals=True)
         data = self._last # _get_measurement_noise sets _last to the updated backfilled data
-        self.ukf.R = np.diag(measurement_noise_diag)
-        self.ukf.predict(self._dt)
-        self.ukf.update(data[1:], H_args=self._initial_altitude)
-        if self._plotter:
-            self._plotter.P_data.append(self.ukf.P)
-            self._plotter.X_data.append(self.ukf.X)
-            self._plotter.timestamps.append(data[0])
+        self.measurement = data
+        if (any(var != 1e9 for var in measurement_noise_diag)):
+            self.ukf.R = np.diag(measurement_noise_diag)
+            self.ukf.predict(self._dt)
+            self.ukf.update(data[1:], H_args=self._initial_altitude)
+            if self._plotter:
+                self._plotter.P_data.append(self.ukf.P)
+                self._plotter.X_data.append(self.ukf.X)
+                self._plotter.timestamps.append(data[0])
+            self._max_altitude = max(self._max_altitude, self.ukf.X[0])
+            self._max_velocity = max(self._max_velocity, self.ukf.X[1])
+            self._flight_state.update()
         
     def _get_measurement_noise(self, data: pd.Series, exclude_repeated_vals: bool = False):
         measurement_noise_diags = self._flight_state.measurement_noise_diagonals.copy()

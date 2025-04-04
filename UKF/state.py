@@ -106,14 +106,14 @@ class StandbyState(State):
         Checks if the rocket has launched, based on our velocity.
         """
 
-        data = self.context.data_processor
         # If the velocity of the rocket is above a threshold, the rocket has launched.
-        if data.vertical_acceleration > TAKEOFF_ACCELERATION_GS:
+        if self.context.measurement[2] < -TAKEOFF_ACCELERATION_GS:
             self.next_state()
             return
 
     def next_state(self):
-        self.context.state = MotorBurnState(self.context)
+        print("standby -> motor burn")
+        self.context._flight_state = MotorBurnState(self.context)
 
     def state_transition_function(self, sigma_points, dt, *F_args):
         return base_state_transition(sigma_points, dt, False, F_args)
@@ -143,20 +143,20 @@ class MotorBurnState(State):
         """Checks to see if the velocity has decreased lower than the maximum velocity, indicating
         the motor has burned out."""
 
-        data = self.context.data_processor
 
         # If our current velocity is less than our max velocity, that means we have stopped
         # accelerating. This is the same thing as checking if our accel sign has flipped
         # We make sure that it is not just a temporary fluctuation by checking if the velocity is a
         # bit less than the max velocity
-        if data.vertical_velocity < data.max_vertical_velocity * MAX_VELOCITY_THRESHOLD:
+        if self.context.ukf.X[1] < self.context._max_velocity * MAX_VELOCITY_THRESHOLD:
             self.next_state()
             return
 
     def next_state(self):
-        self.context.state = CoastState(self.context)
+        print("motor burn -> coast")
+        self.context._flight_state = CoastState(self.context)
 
-    def state_transition_function(self, sigma_points, dt, **F_args):
+    def state_transition_function(self, sigma_points, dt, *F_args):
         return base_state_transition(sigma_points, dt, True, F_args)
 
 
@@ -182,21 +182,20 @@ class CoastState(State):
     def update(self):
         """Checks to see if the rocket has reached apogee, indicating the start of free fall."""
 
-        data = self.context.data_processor
-
         # If our velocity is less than 0 and our altitude is less than 96% of our max altitude, we
         # are in free fall.
         if (
-            data.vertical_velocity <= 0
-            and data.current_altitude <= data.max_altitude * MAX_ALTITUDE_THRESHOLD
+            self.context.ukf.X[1] <= 0
+            and self.context.ukf.X[0] <= self.context._max_altitude * MAX_ALTITUDE_THRESHOLD
         ):
             self.next_state()
             return
 
     def next_state(self):
-        self.context.state = FreeFallState(self.context)
+        print("coast -> freefall")
+        self.context._flight_state = FreeFallState(self.context)
 
-    def state_transition_function(self, sigma_points, dt, **F_args):
+    def state_transition_function(self, sigma_points, dt, *F_args):
         return base_state_transition(sigma_points, dt, True, F_args)
 
 
@@ -223,20 +222,20 @@ class FreeFallState(State):
     def update(self):
         """Check if the rocket has landed, based on our altitude and a spike in acceleration."""
 
-        data = self.context.data_processor
 
         # If our altitude is around 0, and we have an acceleration spike, we have landed
         if (
-            data.current_altitude <= GROUND_ALTITUDE_METERS
-            and data.vertical_acceleration >= LANDED_ACCELERATION_GS
+            self.context.ukf.X[0] <= GROUND_ALTITUDE_METERS
+            and -self.context.measurement[2] >= LANDED_ACCELERATION_GS
         ):
             self.next_state()
 
 
     def next_state(self):
-        self.context.state = LandedState(self.context)
+        print("freefall -> landed")
+        self.context._flight_state = LandedState(self.context)
 
-    def state_transition_function(self, sigma_points, dt, **F_args):
+    def state_transition_function(self, sigma_points, dt, *F_args):
         return base_state_transition(sigma_points, dt, False, F_args)
 
 
@@ -264,6 +263,6 @@ class LandedState(State):
         # Explicitly do nothing, there is no next state
         pass
 
-    def state_transition_function(self, sigma_points, dt, **F_args):
+    def state_transition_function(self, sigma_points, dt, *F_args):
         return base_state_transition(sigma_points, dt, False, F_args)
 

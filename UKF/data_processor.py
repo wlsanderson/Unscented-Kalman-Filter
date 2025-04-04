@@ -31,19 +31,17 @@ class DataProcessor:
             
         if minrow is not None:
             self._df = self._df.loc[minrow:]
-        self._iterator = self._df.iterrows()
+        self._iterator = self._df.itertuples(index=False, name=None)
 
-        
 
     def fetch(self):
         data: pd.Series | None = None
         try:
-            _, data = next(self._iterator)
+            data = next(self._iterator)
+            return np.array(data)
         except StopIteration:
             print("eof")
             return None
-
-        return data
     
     def get_initial_vals(self):
         initial_vals = np.full(len(MEASUREMENT_FIELDS) + 1, None, dtype=object)

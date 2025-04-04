@@ -1,5 +1,6 @@
 version = 1
-requires-python = ">=3.13"
+revision = 1
+requires-python = ">=3.13.2"
 
 [[package]]
 name = "narwhals"

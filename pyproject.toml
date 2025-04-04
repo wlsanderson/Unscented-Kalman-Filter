@@ -1,7 +1,7 @@
 [project]
 name = "Unscented-Kalman-Filter"
 description = "UKF prototyping in Python"
-requires-python = ">=3.13"
+requires-python = ">=3.13.2"
 version = "1.0.0"
 readme = "README.md"
 dependencies = [

@@ -78,11 +78,11 @@ class Context:
             self._max_velocity = max(self._max_velocity, self.ukf.X[1])
             self._flight_state.update()
         
-    def _get_measurement_noise(self, data: pd.Series, exclude_repeated_vals: bool = False):
+    def _get_measurement_noise(self, data: npt.NDArray[np.float64], exclude_repeated_vals: bool = False):
         measurement_noise_diags = self._flight_state.measurement_noise_diagonals.copy()
         # initialize R matrix with extremely high noise for repeated or null values
         z_noise = np.full(len(measurement_noise_diags), 1e9)
-        nulls = data.isnull()
+        nulls = np.isnan(data)
         non_nan_mesurements = ~nulls[1:] # get only the null values of measurements, not timestamps
         valid_measurements = non_nan_mesurements
 
@@ -95,9 +95,9 @@ class Context:
         z_noise[valid_measurements] = measurement_noise_diags[valid_measurements]
 
         # set the null values to the last actual non-null values recorded
-        data[nulls] = self._last[nulls].astype(data.dtype)
-        self._dt = (data.values[0] - self._last[0]) / 1e9
-        self._last = np.array(data.values.astype(np.float64))
+        data[nulls] = self._last[nulls]
+        self._dt = (data[0] - self._last[0]) / 1e9
+        self._last = data
         return z_noise
     
     def set_ukf_functions(self): 

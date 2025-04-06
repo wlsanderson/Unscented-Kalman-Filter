@@ -25,37 +25,53 @@ class States(Enum):
 INITIAL_STATE_COV = np.diag([1.0, 1.0, 0.1, 1e6, 1e6, 1e6, 1e6, 0.1, 0.1, 0.1])
 
 # measurement vector constants
-MEASUREMENT_DIM = 2
-MEASUREMENT_FIELDS = ["estPressureAlt", "scaledAccelZ"]
+MEASUREMENT_DIM = 10
+MEASUREMENT_FIELDS = [
+    "estPressureAlt",
+    "scaledAccelX",
+    "scaledAccelY",
+    "scaledAccelZ",
+    "scaledGyroX",
+    "scaledGyroY",
+    "scaledGyroZ",
+    "magneticFieldX",
+    "magneticFieldY",
+    "magneticFieldZ",
+    ]
 
 class StateProcessCovariance(Enum):
-    """Enum that represents process variance scalar for each flight state"""
+    """Enum that represents process variance scalars on kinematic, quaternion, and gyro covariances"""
 
-    STANDBY = 1e-6
-    MOTOR_BURN= 1e6
-    COAST = 1e-4
-    FREEFALL = 10
-    LANDED = 1e-6
+    STANDBY = ([1e-6, 1e-6, 1e-6],)
+    MOTOR_BURN= ([1e6, 1, 1],)
+    COAST = ([1e-4, 1, 1],)
+    FREEFALL = ([10, 1e6, 1e6],)
+    LANDED = ([1e-6, 1e-6, 1e-6],)
+
+    @property
+    def array(self) -> npt.NDArray:
+        """Returns as numpy array and makes immutable"""
+        return np.array(self.value[0])
 
 
 class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
 
-    STANDBY = ([0.44025, 0.571041128017971e-5],)
-    MOTOR_BURN = ([70, 0.002],)
-    COAST = ([0.04, 2.17e-4],)
-    FREEFALL = ([0.04, 2.17e-4],)
-    LANDED = ([0.44025, 0.571041128017971e-5],)
+    STANDBY = ([0.44025, 5e-6, 5e-6, 5e-6, 1e-3, 1e-3, 1e-3, 2, 2, 2],)
+    MOTOR_BURN = ([70, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 2, 2, 2],)
+    COAST = ([0.04, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 2, 2, 2],)
+    FREEFALL = ([0.04, 1e-2, 1e-2, 1e-2, 1e2, 1e2, 1e2, 2, 2, 2],)
+    LANDED = ([0.44025, 5e-6, 5e-6, 5e-6, 1e-3, 1e-3, 1e-3, 2, 2, 2],)
 
     @property
     def matrix(self) -> npt.NDArray:
-        """Returns as diagonal numpy matrix and makes immutable"""
+        """Returns as numpy array and makes immutable"""
         return np.array(self.value[0])
 
 
 
 # Sigma Point Constants
-ALPHA = 0.5
+ALPHA = 0.1
 BETA = 2
 KAPPA = 3 - STATE_DIM
 

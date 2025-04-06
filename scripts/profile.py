@@ -1,3 +1,4 @@
+import scipy.linalg
 from UKF.sigma_points import SigmaPoints
 from UKF.ukf import UKF
 from UKF.state import State, StandbyState
@@ -5,6 +6,7 @@ from pathlib import Path
 from UKF.data_processor import DataProcessor
 import timeit
 import numpy as np
+import scipy
 from UKF.constants import STATE_DIM, ALPHA, BETA, KAPPA, MEASUREMENT_DIM, INITIAL_STATE_ESTIMATE, INITIAL_STATE_COV, ROCKET_MASS, DRAG_COEFFICIENT, AIR_DENSITY,REFERENCE_AREA, GRAVITY
 
 
@@ -57,5 +59,5 @@ ukf.R = np.diag([1,1])
 
 dp = DataProcessor(Path("launch_data/pelicanator_launch_2.csv"))
 
-t= timeit.timeit(INITIAL_STATE_COV.copy, number=1000000)
-print(t)
+#t= timeit.timeit(INITIAL_STATE_COV.copy, number=1000000)
+

@@ -4,9 +4,10 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 import numpy as np
 import numpy.typing as npt
+import scipy
+import scipy.linalg
 
 from UKF.constants import (
-    STATE_DIM,
     GROUND_ALTITUDE_METERS,
     LANDED_ACCELERATION_GS,
     MAX_ALTITUDE_THRESHOLD,
@@ -82,11 +83,11 @@ class State(ABC):
         """
         Process noise covariance matrix
         """
-        q_covariance_matrix = np.zeros([STATE_DIM, STATE_DIM])
-        q_covariance_matrix[-1][-1] = self.qvar
-        return q_covariance_matrix
-        
-
+        qvar = self.qvar * dt
+        n = qvar.shape[0]
+        mats = np.zeros((n, 3, 3), dtype=np.float64)
+        mats[:, 2, 2] = qvar
+        return scipy.linalg.block_diag(*mats)
 
 
 class StandbyState(State):
@@ -98,7 +99,7 @@ class StandbyState(State):
 
     @property
     def qvar(self) -> np.float64:
-        return StateProcessCovariance.STANDBY.value
+        return StateProcessCovariance.STANDBY.array
     
     @property
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
@@ -133,7 +134,7 @@ class MotorBurnState(State):
 
     @property
     def qvar(self) -> np.float64:
-        return StateProcessCovariance.MOTOR_BURN.value
+        return StateProcessCovariance.MOTOR_BURN.array
     
     @property
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
@@ -177,7 +178,7 @@ class CoastState(State):
 
     @property
     def qvar(self) -> np.float64:
-        return StateProcessCovariance.COAST.value
+        return StateProcessCovariance.COAST.array
     
     @property
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
@@ -215,7 +216,7 @@ class FreeFallState(State):
 
     @property
     def qvar(self) -> np.float64:
-        return StateProcessCovariance.FREEFALL.value
+        return StateProcessCovariance.FREEFALL.array
     
     @property
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
@@ -255,7 +256,7 @@ class LandedState(State):
 
     @property
     def qvar(self) -> np.float64:
-        return StateProcessCovariance.LANDED.value
+        return StateProcessCovariance.LANDED.array
     
     @property
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:

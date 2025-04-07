@@ -3,7 +3,7 @@ import numpy.typing as npt
 from enum import Enum
 
 # state vector constants
-STATE_DIM = 3
+STATE_DIM = 10
 """Altitude, Vertical Velocity, Vertical Acceleration, qw, qx, qy, qz, Gyro X, Gyro Y, Gyro Z"""
 INITIAL_STATE_ESTIMATE = np.array([0.0, 0.0, 9.8, 1.0, 0, 0, 0, 0, 0, 0])
 
@@ -22,7 +22,7 @@ class States(Enum):
 
 
 # initial state covariance
-INITIAL_STATE_COV = np.diag([1.0, 1.0, 0.1, 1e6, 1e6, 1e6, 1e6, 0.1, 0.1, 0.1])
+INITIAL_STATE_COV = np.diag([1.0, 1.0, 0.1, 1e6, 1e6, 1e6, 0.1, 0.1, 0.1])
 
 # measurement vector constants
 MEASUREMENT_DIM = 10
@@ -60,7 +60,7 @@ class StateMeasurementNoise(Enum):
     STANDBY = ([0.44025, 5e-6, 5e-6, 5e-6, 1e-3, 1e-3, 1e-3, 2, 2, 2],)
     MOTOR_BURN = ([70, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 2, 2, 2],)
     COAST = ([0.04, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 2, 2, 2],)
-    FREEFALL = ([0.04, 1e-2, 1e-2, 1e-2, 1e2, 1e2, 1e2, 2, 2, 2],)
+    FREEFALL = ([0.04, 1e-2, 1e-2, 1e-2, 1e2, 1e2, 1e2, 4, 4, 4],)
     LANDED = ([0.44025, 5e-6, 5e-6, 5e-6, 1e-3, 1e-3, 1e-3, 2, 2, 2],)
 
     @property
@@ -73,7 +73,7 @@ class StateMeasurementNoise(Enum):
 # Sigma Point Constants
 ALPHA = 0.1
 BETA = 2
-KAPPA = 3 - STATE_DIM
+KAPPA = 0
 
 # State changes
 TAKEOFF_ACCELERATION_GS = 6

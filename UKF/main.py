@@ -5,7 +5,7 @@ from pathlib import Path
 from UKF.constants import States
 
 def run():
-    launch_log = Path("launch_data/pelicanator_launch_2.csv")
+    launch_log = Path("launch_data/pel2_mag.csv")
     min_r = 5002
     max_r=30000
     plot_state = [States.VELOCITY.value]

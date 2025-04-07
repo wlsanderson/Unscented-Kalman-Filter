@@ -27,7 +27,9 @@ class Context:
 
     def __init__(self, data_processor: DataProcessor, plotter: Plotter | None = None):
         sigma_points = SigmaPoints(
-            n = STATE_DIM,
+            # despite the state vector being 10 dimensions, the variance matrices live in 9D
+            # due to quaternion noise being represented as a 3x3 matrix, not 4x4.
+            n = np.size(INITIAL_STATE_COV, 0),
             alpha = ALPHA,
             beta = BETA,
             kappa = KAPPA,

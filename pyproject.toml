@@ -12,6 +12,9 @@ dependencies = [
     "scipy>=1.15.2",
 ]
 
+[project.scripts]
+main = "UKF.main:run"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

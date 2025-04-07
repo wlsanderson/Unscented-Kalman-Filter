@@ -37,12 +37,11 @@ class UKF:
         self._sigmas_h = np.zeros([self._num_sigmas, dim_z])
 
     def predict(self, dt):
-        self.compute_process_sigmas(dt)
+        self.compute_process_sigmas(dt, self.Q(dt))
         self.X, self.P = self._unscented_transform(
             sigmas = self._sigmas_f,
             Wm = self._sigma_points_class.Wm,
             Wc = self._sigma_points_class.Wc,
-            noise_cov = self.Q(dt)
         )
 
     def update(self, z, **H_args):
@@ -54,8 +53,8 @@ class UKF:
         pred_z, innovation_cov = self._unscented_transform(
             self._sigmas_h,
             self._sigma_points_class.Wm,
-            self._sigma_points_class.Wc,
-            noise_cov = self.R)
+            self._sigma_points_class.Wc
+            )
         innovation_cov_inv = np.linalg.inv(innovation_cov)
         P_cross_covariance = self._calculate_cross_cov(self.X, pred_z)
         kalman_gain = np.dot(P_cross_covariance, innovation_cov_inv)
@@ -65,17 +64,17 @@ class UKF:
         self.P = self.P - np.dot(kalman_gain, np.dot(innovation_cov, kalman_gain.T))
 
     @staticmethod
-    def _unscented_transform(sigmas: npt.NDArray[np.float64], Wm, Wc, noise_cov = None):
+    def _unscented_transform(sigmas: npt.NDArray[np.float64], Wm, Wc):
+        
         x_mean = np.dot(Wm, sigmas)
+        print(x_mean)
         residual = sigmas - x_mean[np.newaxis, :]
         P_covariance = np.dot(residual.T, np.dot(np.diag(Wc), residual))
 
-        if noise_cov is not None:
-            P_covariance += noise_cov
         return (x_mean, P_covariance)
 
-    def compute_process_sigmas(self, dt, **F_args):
-        sigmas = self._sigma_points_class.calculate_sigma_points(self.X, self.P)
+    def compute_process_sigmas(self, dt, Q, **F_args):
+        sigmas = self._sigma_points_class.calculate_sigma_points(self.X, self.P, Q)
         for i, s in enumerate(sigmas):
             self._sigmas_f[i] = self.F(s, dt, F_args)
 

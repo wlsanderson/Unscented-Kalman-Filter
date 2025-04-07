@@ -1,6 +1,10 @@
-"""Largely copied from FilterPy's MerweScaledSigmaPoints class"""
+"""
+Based on FilterPy's MerweScaledSigmaPoints class, with changes made to support quaternions from
+Edgar Kraft's paper on quaternion UKF's.
+"""
 import numpy as np
 import numpy.typing as npt
+from UKF.quaternion import quat_multiply, quat_inv, eul2quat
 
 class SigmaPoints:
     __slots__ = (
@@ -23,8 +27,6 @@ class SigmaPoints:
 
         self._compute_weights()
 
-        
-
 
     def _compute_weights(self) -> None:
         lambda_ = self._alpha**2 * (self._n + self._kappa) - self._n
@@ -34,18 +36,34 @@ class SigmaPoints:
         self.Wc[0] = lambda_ / (self._n + lambda_) + (1 - self._alpha**2 + self._beta)
         self.Wm[0] = lambda_ / (self._n + lambda_)
 
-    def calculate_sigma_points(self, X, P) -> npt.NDArray:
-        if self._n != np.size(X):
-            raise ValueError("expected size(x) {}, but size is {}".format(self.n, np.size(X)))
+    def calculate_sigma_points(self, X, P, Q) -> npt.NDArray:
+        """
+        Calculates sigma points that will be evaluated in the state transition function. Process
+        noise willbe included before the state transition function. Because of this, the scaled
+        choleskly square root will be one dimension smaller than the sigma points because the noise
+        matrix for quaternions is 3 components, not 4.
+        """
         P = np.atleast_2d(P)
-        n = len(X)
-        lambda_ = self._alpha**2 * (n + self._kappa) - n
-        scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + n)*(P), upper=True)
-        sigmas = np.zeros([2 * n + 1, n])
+        Q = np.atleast_2d(Q)
+        state_dim = len(X)
+        lambda_ = self._alpha**2 * (self._n + self._kappa) - self._n
+        scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + self._n)*(P + Q), upper=True)
+        
+        sigmas = np.zeros([2 * self._n + 1, state_dim])
         sigmas[0] = X
-        for i in range(n):
-            sigmas[i+1] = np.subtract(X, -scaled_cholesky_sqrt[i])
-            sigmas[n+i+1] = np.subtract(X, scaled_cholesky_sqrt[i])
+
+        for i in range(self._n):
+            sigmas[i+1][:3] = np.subtract(X[:3], -scaled_cholesky_sqrt[i][:3])
+            sigmas[i+1][-3:] = np.subtract(X[-3:], -scaled_cholesky_sqrt[i][-3:])
+            sigmas[self._n+i+1][:3] = np.subtract(X[:3], scaled_cholesky_sqrt[i][:3])
+            sigmas[self._n+i+1][-3:] = np.subtract(X[-3:], scaled_cholesky_sqrt[i][-3:])
+
+            quat_sqrt = scaled_cholesky_sqrt[i][3:6]
+            quat_sigma = eul2quat(quat_sqrt)
+
+            sigmas[i+1][3:7] = quat_multiply(X[3:7], quat_sigma)
+            sigmas[self._n+i+1][3:7] = quat_multiply(X[3:7], quat_inv(quat_sigma))
+        print(sigmas)
         return sigmas
 
     def num_sigmas(self) -> int:

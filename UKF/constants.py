@@ -68,6 +68,18 @@ class StateMeasurementNoise(Enum):
         """Returns as numpy array and makes immutable"""
         return np.array(self.value[0])
 
+# Magnetic Field
+# https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml#igrfwmm
+class MagneticField(Enum):
+    NED = ([22.223, -3.613, 43.318],)
+    DECLINATION = -9 + (1/60) * -14 # degrees
+    INCLINATION = 62 + (1/60) * 32 # degrees
+    HORIZONTAL_INTENSITY = 22.515
+
+    @property
+    def vector(self) -> npt.NDArray:
+        """Returns as numpy array and makes immutable"""
+        return np.array(self.value[0])
 
 
 # Sigma Point Constants

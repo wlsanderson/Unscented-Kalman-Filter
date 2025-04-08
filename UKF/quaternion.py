@@ -56,3 +56,14 @@ def quat2rotvec(quat: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     axis[valid] = quat[valid, 1:] / np.sin(angles[valid] / 2)[:, None]
     result[valid] = axis[valid] * angles[valid, None]
     return result[0] if quat.shape[0] == 1 else result
+
+def quat_rotate(
+        quat: npt.NDArray[np.float64],
+        v: npt.NDArray[np.float64],
+        ) -> npt.NDArray[np.float64]:
+    """
+    Need to check if this is rotating from global frame -> vehicle frame, or
+    vehicle frame -> global frame.
+    """
+    v = np.concatenate([[0], v])
+    return quat_multiply(quat, quat_multiply(v, quat_inv(quat)))[1:]

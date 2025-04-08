@@ -47,6 +47,9 @@ class SigmaPoints:
         Q = np.atleast_2d(Q)
         state_dim = len(X)
         lambda_ = self._alpha**2 * (self._n + self._kappa) - self._n
+        P = 0.5 * (P + P.T)
+        #print(np.linalg.eigvals(P))
+
         scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + self._n)*(P + Q), upper=True)
         
         sigmas = np.zeros([2 * self._n + 1, state_dim])

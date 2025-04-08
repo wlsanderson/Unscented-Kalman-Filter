@@ -1,14 +1,17 @@
-from UKF.constants import GRAVITY, DRAG_COEFFICIENT, ROCKET_MASS, REFERENCE_AREA, AIR_DENSITY
+from UKF.constants import GRAVITY, DRAG_COEFFICIENT, ROCKET_MASS, REFERENCE_AREA, AIR_DENSITY, MagneticField
 import numpy as np
 import numpy.typing as npt
-from UKF.quaternion import rotvec2quat, quat_multiply
+from UKF.quaternion import rotvec2quat, quat_multiply, quat_rotate
 
 def measurement_function(sigmas, **H_args):
     init_alt = H_args["H_args"]
-    acc = sigmas[2]
-    acc_measurement = -acc / GRAVITY
-    alt_measurement = sigmas[0] + init_alt
-    return np.array([alt_measurement, acc_measurement])
+    global_acc = np.array([0, 0, -sigmas[2] / GRAVITY])
+    acc = quat_rotate(sigmas[6:10], global_acc)
+    alt = sigmas[0] + init_alt
+    gyro = sigmas[3:6]
+    global_mag = MagneticField.NED.vector
+    mag = quat_rotate(sigmas[6:10], global_mag)
+    return np.array([alt, acc[0], acc[1], acc[2], gyro[0], gyro[1], gyro[2], mag[0], mag[1], mag[2]])
 
 def base_state_transition(sigmas, dt, drag_option: bool = False, *F_args) -> npt.NDArray:
     next_acc = sigmas[2]
@@ -36,7 +39,6 @@ def base_state_transition(sigmas, dt, drag_option: bool = False, *F_args) -> npt
         quat[2],
         quat[3]
         ])
-
 
 def calc_drag(velocity):
     return 0.5 * DRAG_COEFFICIENT * REFERENCE_AREA * AIR_DENSITY * velocity**2

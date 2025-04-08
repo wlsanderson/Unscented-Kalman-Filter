@@ -1,7 +1,10 @@
 import numpy as np
 import numpy.typing as npt
+import scipy
+import scipy.linalg
 
 from UKF.sigma_points import SigmaPoints
+from UKF.quaternion import quat_multiply, quat2rotvec, rotvec2quat, quat_inv
 
 
 class UKF:
@@ -42,6 +45,7 @@ class UKF:
             sigmas = self._sigmas_f,
             Wm = self._sigma_points_class.Wm,
             Wc = self._sigma_points_class.Wc,
+            X = self.X,
         )
 
     def update(self, z, **H_args):
@@ -64,13 +68,34 @@ class UKF:
         self.P = self.P - np.dot(kalman_gain, np.dot(innovation_cov, kalman_gain.T))
 
     @staticmethod
-    def _unscented_transform(sigmas: npt.NDArray[np.float64], Wm, Wc):
-        
-        x_mean = np.dot(Wm, sigmas)
-        print(x_mean)
-        residual = sigmas - x_mean[np.newaxis, :]
-        P_covariance = np.dot(residual.T, np.dot(np.diag(Wc), residual))
+    def _unscented_transform(sigmas: npt.NDArray[np.float64], Wm, Wc, X):
+        # splitting sigma points up into vector states and quaternion states
+        vector_sigmas = sigmas[:, 0:6]
+        quat_sigmas = sigmas[:, 6:10]
+        # small delta quaternions are made by multiplying the quaternion sigmas by the
+        # inverse of the current quaternion state
+        delta_quats = quat_multiply(quat_sigmas, quat_inv(X[6:10]))
+        # delta quaternion rotations are converted into delta rotation vectors
+        delta_rotvecs = quat2rotvec(delta_quats)
+        # the mean of the rotation vector is calculated by multiplying each sigma by each weight
+        # this mean cannot be calculated with quaternions directly due to the inability to sum
+        # them.
+        mean_delta_rotvec = np.dot(Wm, delta_rotvecs)
+        # mean delta rotation vector is transformed back into a mean delta quaternion and
+        # multiplied into the state to get the quaternion prediction
+        mean_quat = quat_multiply(rotvec2quat(mean_delta_rotvec), X[6:10])
+        # the vector portion of the sigma points are calculated normally
+        vector_mean = np.dot(Wm, vector_sigmas)
+        x_mean = np.concatenate([vector_mean, mean_quat])
 
+        quat_covariance = (delta_rotvecs.T * Wc) @ delta_rotvecs
+        vec_residual = vector_sigmas - vector_mean[np.newaxis, :]
+        vec_covariance = (vec_residual.T * Wc) @  vec_residual
+        
+        # IMPORTANT: using block_diag means that there will NEVER be cross-covariances
+        # between the vector components and quaternion components. This is for simplicity
+        # but is not accurate, and should be later reconsidered if inadequate
+        P_covariance = scipy.linalg.block_diag(vec_covariance, quat_covariance)
         return (x_mean, P_covariance)
 
     def compute_process_sigmas(self, dt, Q, **F_args):

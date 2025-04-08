@@ -5,24 +5,24 @@ from enum import Enum
 # state vector constants
 STATE_DIM = 10
 """Altitude, Vertical Velocity, Vertical Acceleration, qw, qx, qy, qz, Gyro X, Gyro Y, Gyro Z"""
-INITIAL_STATE_ESTIMATE = np.array([0.0, 0.0, 9.8, 1.0, 0, 0, 0, 0, 0, 0])
+INITIAL_STATE_ESTIMATE = np.array([0.0, 0.0, 9.8, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
 
 class States(Enum):
     """Represents the state names and associated index of state vector"""
     ALTITUDE = 0
     VELOCITY = 1
     ACCELERATION = 2
-    QUAT_W = 3
-    QUAT_X = 4
-    QUAT_Y = 5
-    QUAT_Z = 6
-    GYRO_X = 7
-    GYRO_Y = 8
-    GYRO_Z = 9
+    GYRO_X = 3
+    GYRO_Y = 4
+    GYRO_Z = 5
+    QUAT_W = 6
+    QUAT_X = 7
+    QUAT_Y = 8
+    QUAT_Z = 9
 
 
 # initial state covariance
-INITIAL_STATE_COV = np.diag([1.0, 1.0, 0.1, 1e6, 1e6, 1e6, 0.1, 0.1, 0.1])
+INITIAL_STATE_COV = np.diag([1.0, 1.0, 0.1, 0.1, 0.1, 0.1, 1e6, 1e6, 1e6])
 
 # measurement vector constants
 MEASUREMENT_DIM = 10
@@ -40,7 +40,7 @@ MEASUREMENT_FIELDS = [
     ]
 
 class StateProcessCovariance(Enum):
-    """Enum that represents process variance scalars on kinematic, quaternion, and gyro covariances"""
+    """Enum that represents process variance scalars on kinematic, gyro, and quaternion covariances"""
 
     STANDBY = ([1e-6, 1e-6, 1e-6],)
     MOTOR_BURN= ([1e6, 1, 1],)

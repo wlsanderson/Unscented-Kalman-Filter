@@ -4,7 +4,7 @@ Edgar Kraft's paper on quaternion UKF's.
 """
 import numpy as np
 import numpy.typing as npt
-from UKF.quaternion import quat_multiply, quat_inv, eul2quat
+from UKF.quaternion import quat_multiply, quat_inv, rotvec2quat
 
 class SigmaPoints:
     __slots__ = (
@@ -53,17 +53,14 @@ class SigmaPoints:
         sigmas[0] = X
 
         for i in range(self._n):
-            sigmas[i+1][:3] = np.subtract(X[:3], -scaled_cholesky_sqrt[i][:3])
-            sigmas[i+1][-3:] = np.subtract(X[-3:], -scaled_cholesky_sqrt[i][-3:])
-            sigmas[self._n+i+1][:3] = np.subtract(X[:3], scaled_cholesky_sqrt[i][:3])
-            sigmas[self._n+i+1][-3:] = np.subtract(X[-3:], scaled_cholesky_sqrt[i][-3:])
+            sigmas[i+1][:6] = np.subtract(X[:6], -scaled_cholesky_sqrt[i][:6])
+            sigmas[self._n+i+1][:6] = np.subtract(X[:6], scaled_cholesky_sqrt[i][:6])
 
-            quat_sqrt = scaled_cholesky_sqrt[i][3:6]
-            quat_sigma = eul2quat(quat_sqrt)
+            quat_sqrt = scaled_cholesky_sqrt[i][6:9]
+            quat_sigma = rotvec2quat(quat_sqrt)
 
-            sigmas[i+1][3:7] = quat_multiply(X[3:7], quat_sigma)
-            sigmas[self._n+i+1][3:7] = quat_multiply(X[3:7], quat_inv(quat_sigma))
-        print(sigmas)
+            sigmas[i+1][6:10] = quat_multiply(X[6:10], quat_sigma)
+            sigmas[self._n+i+1][6:10] = quat_multiply(X[6:10], quat_inv(quat_sigma))
         return sigmas
 
     def num_sigmas(self) -> int:

@@ -112,7 +112,7 @@ class StandbyState(State):
         """
 
         # If the velocity of the rocket is above a threshold, the rocket has launched.
-        if self.context.measurement[4] < -TAKEOFF_ACCELERATION_GS:
+        if self.context.measurement[4] < -TAKEOFF_ACCELERATION_GS *1e6:
             self.next_state()
             return
 

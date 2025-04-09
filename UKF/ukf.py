@@ -72,7 +72,6 @@ class UKF:
         self.X[6:10] = self.X[6:10] / np.linalg.norm(self.X[6:10])
         self.P = self.P - np.dot(kalman_gain, np.dot(innovation_cov, kalman_gain.T))
         self.P = 0.5 * (self.P + self.P.T)  # enforce symmetry
-
         eigvals, eigvecs = np.linalg.eigh(self.P)
         eigvals = np.clip(eigvals, 1e-8, None)  # enforce PSD
         self.P = eigvecs @ np.diag(eigvals) @ eigvecs.T
@@ -123,7 +122,6 @@ class UKF:
         sigmas = self._sigma_points_class.calculate_sigma_points(self.X, self.P, Q)
         for i, s in enumerate(sigmas):
             self._sigmas_f[i] = self.F(s, dt, F_args)
-        
 
 
     def _calculate_cross_cov(self, x, z):

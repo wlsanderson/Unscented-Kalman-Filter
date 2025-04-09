@@ -70,6 +70,7 @@ class Context:
         if (any(var != 1e9 for var in measurement_noise_diag)):
             self.ukf.R = np.diag(measurement_noise_diag)
             self.ukf.predict(self._dt)
+            self._plotter.X_data_pred.append(self.ukf.X)
             self.ukf.update(data[1:], H_args=self._initial_altitude)
             if self._plotter:
                 self._plotter.P_data.append(self.ukf.P)

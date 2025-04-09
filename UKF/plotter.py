@@ -11,6 +11,7 @@ class Plotter:
     __slots__ = (
         "state_indices",
         "X_data",
+        "X_data_pred",
         "P_data",
         "timestamps",
         "csv_data",
@@ -37,6 +38,7 @@ class Plotter:
             raise ValueError("state_index must be an int, a function, or a list of ints/functions.")
 
         self.X_data: list = []
+        self.X_data_pred: list = []
         self.P_data: list = []
         self.timestamps: list = [] # nanoseconds
         self.state_times: list = [] # nanoseconds
@@ -74,8 +76,10 @@ class Plotter:
                     col_name = LOG_HEADER_STATES[s]
                     meas_col = df[col_name]
             
+                # if s == 2:
+                #     meas_col *= -GRAVITY
                 if s == 2:
-                    meas_col *= -GRAVITY
+                    meas_col *= -1
                 time_col = df[TIMESTAMP_COL_NAME]
 
                 # Create a mask for rows where the measurement is not NaN
@@ -125,14 +129,18 @@ class Plotter:
         if self.X_data and self.timestamps:
             timestamps = np.array(self.timestamps, dtype=np.float64)
             X_data = np.array(self.X_data, dtype=np.float64)
+            X_data_pred = np.array(self.X_data, dtype=np.float64)
             timestamps = (timestamps - timestamps[0])/1e9
+
 
             for i, s in enumerate(self.state_indices):
                 if callable(s):
                     internal_trace = s(X_data)
+                    internal_trace_pred = s(X_data_pred)
                     name = getattr(s, "__name__", f"Derived[{i}]")
                 else:
                     internal_trace = X_data[:, s]
+                    internal_trace_pred = X_data_pred[:, s]
                     name = f"Simulated X[{s}]"
 
                 if len(self.state_indices) == 1:
@@ -142,6 +150,13 @@ class Plotter:
                         mode="lines",
                         name=name
                     ))
+                    fig.add_trace(go.Scatter(
+                        x=timestamps,
+                        y=internal_trace_pred,
+                        name=(name + " pred"),
+                        mode="markers"
+                    ))
+
                 else:
                     # if 2 indices, use 2 y axes
                     yaxis_name = "y" if i == 0 else "y2"
@@ -150,6 +165,13 @@ class Plotter:
                         y=internal_trace,
                         mode="lines",
                         name=name,
+                        yaxis=yaxis_name,
+                    ))
+                    fig.add_trace(go.Scatter(
+                        x=timestamps,
+                        y=internal_trace_pred,
+                        mode="markers",
+                        name=(name + " pred"),
                         yaxis=yaxis_name,
                     ))
                     
@@ -175,6 +197,7 @@ class Plotter:
         
         # Update figure layout
         fig.update_layout(**layout)
+        fig.update_traces(marker=dict(size=3))
         fig.show()
 
     def compute_pitch(self, q):

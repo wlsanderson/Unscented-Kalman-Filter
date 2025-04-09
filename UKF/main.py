@@ -16,12 +16,12 @@ def compute_pitch(X_data):
     return pitch
 
 def run():
-    launch_log = Path("launch_data/pel2_mag.csv")
+    launch_log = Path("launch_data/pelicanator_launch_3.csv")
 
-    min_r = 9502
-    max_r=13000
-    #plot_state = [States.GYRO_Z.value]
-    plot_state = compute_pitch
+    min_r = 59300
+    max_r=60000
+    plot_state = [States.ACCELERATION.value]
+    #plot_state = compute_pitch
 
     plotter = Plotter(state_index=plot_state, file_path=launch_log, min_r=min_r, max_r=max_r)
     data_processor = DataProcessor(launch_log, min_r=min_r, max_r=max_r)

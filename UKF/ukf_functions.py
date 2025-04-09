@@ -5,7 +5,7 @@ from UKF.quaternion import rotvec2quat, quat_multiply, quat_rotate
 
 def measurement_function(sigmas, **H_args):
     init_alt = H_args["H_args"]
-    global_acc = np.array([0, 0, -sigmas[2] / GRAVITY])
+    global_acc = np.array([0, 0, -sigmas[2]])
     acc = quat_rotate(sigmas[6:10], global_acc)
     alt = sigmas[0] + init_alt
     gyro = sigmas[3:6]

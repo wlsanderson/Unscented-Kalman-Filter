@@ -4,6 +4,8 @@ import plotly.graph_objects as go
 import plotly.io as pio
 from pathlib import Path
 from UKF.constants import TIMESTAMP_COL_NAME, GRAVITY, LOG_HEADER_STATES
+from scipy.spatial.transform import Rotation as R
+
 
 class Plotter:
     __slots__ = (
@@ -27,12 +29,12 @@ class Plotter:
         """
         pio.renderers.default = "browser"
 
-        if isinstance(state_index, int):
+        if isinstance(state_index, int) or callable(state_index):
             self.state_indices = [state_index]
-        elif isinstance(state_index, list) and (len(state_index) in [1,2]):
+        elif isinstance(state_index, list) and all(isinstance(s, (int, type(lambda:0))) for s in state_index):
             self.state_indices = state_index
         else:
-            raise ValueError("state_index must be an int or a list of 1 or 2 ints.")
+            raise ValueError("state_index must be an int, a function, or a list of ints/functions.")
 
         self.X_data: list = []
         self.P_data: list = []
@@ -49,6 +51,11 @@ class Plotter:
             for s in self.state_indices:
                 if s in LOG_HEADER_STATES:
                     headers.append(LOG_HEADER_STATES[s])
+                elif callable(s):
+                    headers.append("estOrientQuaternionW")
+                    headers.append("estOrientQuaternionX")
+                    headers.append("estOrientQuaternionY")
+                    headers.append("estOrientQuaternionZ")
                 else:
                     raise ValueError(f"Unsupported state index {s} for CSV reading.")
 
@@ -61,17 +68,25 @@ class Plotter:
                 df = df.loc[min_r:]
 
             for s in self.state_indices:
-                col_name = LOG_HEADER_STATES[s]
-                meas_col = df[col_name]
+                if callable(s) :
+                    meas_col = df[headers[1:]]
+                else:
+                    col_name = LOG_HEADER_STATES[s]
+                    meas_col = df[col_name]
             
                 if s == 2:
                     meas_col *= -GRAVITY
                 time_col = df[TIMESTAMP_COL_NAME]
 
                 # Create a mask for rows where the measurement is not NaN
-                mask = meas_col.notna()
-                meas_array = meas_col[mask].to_numpy(dtype=np.float64)
-                time_array = time_col[mask].to_numpy(dtype=np.float64)
+                if isinstance(meas_col, pd.Series):
+                    mask = meas_col.notna()
+                    meas_array = meas_col[mask].to_numpy(dtype=np.float64)
+                    time_array = time_col[mask].to_numpy(dtype=np.float64)
+                else:
+                    mask = ~meas_col.isna().any(axis=1)
+                    meas_array = meas_col[mask].to_numpy(dtype=np.float64)
+                    time_array = time_col[mask].to_numpy(dtype=np.float64)
                 time_array = (time_array - time_array[0]) / 1e9
                 self.csv_data[s] = meas_array
                 self.csv_time[s] = time_array
@@ -81,7 +96,14 @@ class Plotter:
 
         # Plot CSV data if available
         for i, s in enumerate(self.state_indices):
-            if s in self.csv_data and s in self.csv_time:
+            if callable(s):
+                fig.add_trace(go.Scatter(
+                    x = self.csv_time[s],
+                    y = self.compute_pitch(self.csv_data[s]),
+                    mode="lines",
+                    name="CSV Pitch"
+                ))
+            elif s in self.csv_data and s in self.csv_time:
                 if len(self.state_indices) == 1:
                     fig.add_trace(go.Scatter(
                         x = self.csv_time[s],
@@ -106,14 +128,19 @@ class Plotter:
             timestamps = (timestamps - timestamps[0])/1e9
 
             for i, s in enumerate(self.state_indices):
-                internal_trace = X_data[:, s]
+                if callable(s):
+                    internal_trace = s(X_data)
+                    name = getattr(s, "__name__", f"Derived[{i}]")
+                else:
+                    internal_trace = X_data[:, s]
+                    name = f"Simulated X[{s}]"
 
                 if len(self.state_indices) == 1:
                     fig.add_trace(go.Scatter(
                         x=timestamps,
                         y=internal_trace,
                         mode="lines",
-                        name=f"Simulated X[{s}]"
+                        name=name
                     ))
                 else:
                     # if 2 indices, use 2 y axes
@@ -122,7 +149,7 @@ class Plotter:
                         x=timestamps,
                         y=internal_trace,
                         mode="lines",
-                        name=f"Simulated X[{s}]",
+                        name=name,
                         yaxis=yaxis_name,
                     ))
                     
@@ -149,4 +176,12 @@ class Plotter:
         # Update figure layout
         fig.update_layout(**layout)
         fig.show()
+
+    def compute_pitch(self, q):
+        # Convert to scipy-friendly order: [qx, qy, qz, qw]
+        q_scipy = np.column_stack([q[:, 1], q[:, 2], q[:, 3], q[:, 0]])
+        r = R.from_quat(q_scipy)
+        euler = r.as_euler('zyx', degrees=True)  # yaw, pitch, roll
+        pitch = euler[:, 1]  # second column is pitch
+        return pitch
 

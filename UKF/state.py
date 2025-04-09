@@ -112,7 +112,7 @@ class StandbyState(State):
         """
 
         # If the velocity of the rocket is above a threshold, the rocket has launched.
-        if self.context.measurement[2] < -TAKEOFF_ACCELERATION_GS:
+        if self.context.measurement[4] < -TAKEOFF_ACCELERATION_GS:
             self.next_state()
             return
 
@@ -143,7 +143,7 @@ class MotorBurnState(State):
 
     def __init__(self, context: "Context"):
         super().__init__(context)
-        self.context.ukf.P = np.add(self.context.ukf.P, 0.01)
+        self.context.ukf.P = np.add(self.context.ukf.P, 0.1)
 
     def update(self):
         """Checks to see if the velocity has decreased lower than the maximum velocity, indicating
@@ -155,7 +155,7 @@ class MotorBurnState(State):
         # We make sure that it is not just a temporary fluctuation by checking if the velocity is a
         # bit less than the max velocity
         if (self.context.ukf.X[1] < self.context._max_velocity * MAX_VELOCITY_THRESHOLD) and (
-            self.context._max_velocity > 20
+            self.context._max_velocity > 2000
         ):
             self.next_state()
             return
@@ -235,7 +235,7 @@ class FreeFallState(State):
         # If our altitude is around 0, and we have an acceleration spike, we have landed
         if (
             self.context.ukf.X[0] <= GROUND_ALTITUDE_METERS
-            and -self.context.measurement[2] >= LANDED_ACCELERATION_GS
+            and -self.context.measurement[4] >= LANDED_ACCELERATION_GS
         ):
             self.next_state()
 

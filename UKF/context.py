@@ -82,7 +82,7 @@ class Context:
     def _get_measurement_noise(self, data: npt.NDArray[np.float64], exclude_repeated_vals: bool = False):
         measurement_noise_diags = self._flight_state.measurement_noise_diagonals.copy()
         # initialize R matrix with extremely high noise for repeated or null values
-        z_noise = np.full(len(measurement_noise_diags), 1e9)
+        z_noise = np.full(len(measurement_noise_diags), 1e18)
         nulls = np.isnan(data)
         non_nan_mesurements = ~nulls[1:] # get only the null values of measurements, not timestamps
         valid_measurements = non_nan_mesurements

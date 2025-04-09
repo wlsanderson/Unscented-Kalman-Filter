@@ -5,7 +5,7 @@ from enum import Enum
 # state vector constants
 STATE_DIM = 10
 """Altitude, Vertical Velocity, Vertical Acceleration, qw, qx, qy, qz, Gyro X, Gyro Y, Gyro Z"""
-INITIAL_STATE_ESTIMATE = np.array([0.0, 0.0, 9.8, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
+INITIAL_STATE_ESTIMATE = np.array([0.0, 0.0, 9.8, 0.0, 0.0, 0.0, 1, 0, 0, 0])
 
 class States(Enum):
     """Represents the state names and associated index of state vector"""
@@ -22,7 +22,7 @@ class States(Enum):
 
 
 # initial state covariance
-INITIAL_STATE_COV = np.diag([1.0, 1.0, 0.1, 0.1, 0.1, 0.1, 1e6, 1e6, 1e6])
+INITIAL_STATE_COV = np.diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
 
 # measurement vector constants
 MEASUREMENT_DIM = 10
@@ -42,8 +42,8 @@ MEASUREMENT_FIELDS = [
 class StateProcessCovariance(Enum):
     """Enum that represents process variance scalars on kinematic, gyro, and quaternion covariances"""
 
-    STANDBY = ([1e-6, 1e-6, 1e-6],)
-    MOTOR_BURN= ([1e6, 1, 1],)
+    STANDBY = ([1e-2, 1e-2, 1e-2],)
+    MOTOR_BURN= ([1e6, 1e13, 1e13],)
     COAST = ([1e-4, 1, 1],)
     FREEFALL = ([10, 1e6, 1e6],)
     LANDED = ([1e-6, 1e-6, 1e-6],)
@@ -57,11 +57,11 @@ class StateProcessCovariance(Enum):
 class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
 
-    STANDBY = ([0.44025, 5e-6, 5e-6, 5e-6, 1e-3, 1e-3, 1e-3, 2, 2, 2],)
-    MOTOR_BURN = ([70, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 2, 2, 2],)
-    COAST = ([0.04, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 2, 2, 2],)
-    FREEFALL = ([0.04, 1e-2, 1e-2, 1e-2, 1e2, 1e2, 1e2, 4, 4, 4],)
-    LANDED = ([0.44025, 5e-6, 5e-6, 5e-6, 1e-3, 1e-3, 1e-3, 2, 2, 2],)
+    STANDBY = ([0.44025, 5e-6, 5e-6, 5e-6, 1e-3, 1e-3, 1e-3, 2e20, 2e20, 2e20],)
+    MOTOR_BURN = ([70, 1e-3, 1e-3, 1e-3, 1e-5, 1e-5, 1e-5, 2e20, 2e20, 2e20],)
+    COAST = ([0.04, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 2e20, 2e20, 2e20],)
+    FREEFALL = ([0.04, 1e-2, 1e-2, 1e-2, 1e2, 1e2, 1e2, 4e20, 4e20, 4e20],)
+    LANDED = ([0.44025, 5e-6, 5e-6, 5e-6, 1e-3, 1e-3, 1e-3, 2e20, 2e20, 2e20],)
 
     @property
     def matrix(self) -> npt.NDArray:
@@ -103,4 +103,4 @@ DRAG_COEFFICIENT = 0.45
 
 # log files
 TIMESTAMP_COL_NAME = "timestamp"
-LOG_HEADER_STATES = {0: "current_altitude", 1: "vertical_velocity", 2: "scaledAccelZ"}
+LOG_HEADER_STATES = {0: "current_altitude", 1: "vertical_velocity", 2: "scaledAccelZ", 3: "scaledGyroX",  4: "scaledGyroY", 5: "scaledGyroZ"}

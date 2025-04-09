@@ -61,6 +61,7 @@ class UKF:
             )
         innovation_cov_inv = np.linalg.inv(innovation_cov)
         P_cross_covariance = self._calculate_cross_cov(self.X, pred_z)
+
         kalman_gain = np.dot(P_cross_covariance, innovation_cov_inv)
         residual = np.subtract(z, pred_z)
 
@@ -69,8 +70,12 @@ class UKF:
         self.X[0:6] += delta_x[0:6]
         self.X[6:10] = quat_multiply(delta_q, self.X[6:10])
         self.X[6:10] = self.X[6:10] / np.linalg.norm(self.X[6:10])
-
         self.P = self.P - np.dot(kalman_gain, np.dot(innovation_cov, kalman_gain.T))
+        self.P = 0.5 * (self.P + self.P.T)  # enforce symmetry
+
+        eigvals, eigvecs = np.linalg.eigh(self.P)
+        eigvals = np.clip(eigvals, 1e-8, None)  # enforce PSD
+        self.P = eigvecs @ np.diag(eigvals) @ eigvecs.T
 
     @staticmethod
     def _unscented_transform_F(sigmas: npt.NDArray[np.float64], Wm, Wc, X=None):
@@ -107,7 +112,6 @@ class UKF:
     def _unscented_transform_H(sigmas: npt.NDArray[np.float64], Wm, Wc, noise_cov = None):
         
         x_mean = np.dot(Wm, sigmas)
-        print(Wm)
         residual = sigmas - x_mean[np.newaxis, :]
         P_covariance = np.dot(residual.T, np.dot(np.diag(Wc), residual))
 
@@ -119,6 +123,7 @@ class UKF:
         sigmas = self._sigma_points_class.calculate_sigma_points(self.X, self.P, Q)
         for i, s in enumerate(sigmas):
             self._sigmas_f[i] = self.F(s, dt, F_args)
+        
 
 
     def _calculate_cross_cov(self, x, z):

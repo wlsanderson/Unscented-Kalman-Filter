@@ -76,10 +76,10 @@ class Plotter:
                     col_name = LOG_HEADER_STATES[s]
                     meas_col = df[col_name]
             
-                # if s == 2:
-                #     meas_col *= -GRAVITY
                 if s == 2:
-                    meas_col *= -1
+                    meas_col *= -GRAVITY
+                # if s == 2:
+                #     meas_col *= -1
                 time_col = df[TIMESTAMP_COL_NAME]
 
                 # Create a mask for rows where the measurement is not NaN

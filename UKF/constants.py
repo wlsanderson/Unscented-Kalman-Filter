@@ -3,26 +3,28 @@ import numpy.typing as npt
 from enum import Enum
 
 # state vector constants
-STATE_DIM = 10
-"""Altitude, Vertical Velocity, Vertical Acceleration, qw, qx, qy, qz, Gyro X, Gyro Y, Gyro Z"""
-INITIAL_STATE_ESTIMATE = np.array([0.0, 0.0, 9.8, 0.0, 0.0, 0.0, 1, 0, 0, 0])
+STATE_DIM = 12
+"""Altitude, Vertical Velocity, accel x, accel y, accel z, Gyro X, Gyro Y, Gyro Z, qw, qx, qy, qz"""
+INITIAL_STATE_ESTIMATE = np.array([0.1, 0.1, 0.1, 0.1, 9.8, 0.0, 0.0, 0.0, 0.4686, 0, -0.01765, -0.88337])
 
 class States(Enum):
     """Represents the state names and associated index of state vector"""
     ALTITUDE = 0
     VELOCITY = 1
-    ACCELERATION = 2
-    GYRO_X = 3
-    GYRO_Y = 4
-    GYRO_Z = 5
-    QUAT_W = 6
-    QUAT_X = 7
-    QUAT_Y = 8
-    QUAT_Z = 9
+    ACCELERATION_X = 2
+    ACCELERATION_Y = 3
+    ACCELERATION_Z = 4
+    GYRO_X = 5
+    GYRO_Y = 6
+    GYRO_Z = 7
+    QUAT_W = 8
+    QUAT_X = 9
+    QUAT_Y = 10
+    QUAT_Z = 11
 
 
 # initial state covariance
-INITIAL_STATE_COV = np.diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+INITIAL_STATE_COV = np.diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
 
 # measurement vector constants
 MEASUREMENT_DIM = 7
@@ -50,13 +52,13 @@ MEASUREMENT_FIELDS = [
 #     ]
 
 class StateProcessCovariance(Enum):
-    """Enum that represents process variance scalars on kinematic, gyro, and quaternion covariances"""
-
-    STANDBY = ([1e1, 1e1, 1e1],)
-    MOTOR_BURN= ([1e6, 1e13, 1e13],)
-    COAST = ([1e-4, 1, 1],)
-    FREEFALL = ([10, 1e6, 1e6],)
-    LANDED = ([1e-6, 1e-6, 1e-6],)
+    """Enum that represents process variance scalars on kinematic and gyro covariances"""
+    # acc x, acc y, acc z, gyro x, gyro y, gyro z
+    STANDBY = ([1e-2, 1e-2, 1e-4, 2e-4, 2e-4, 2e-4],)
+    MOTOR_BURN= ([1e-4, 1e-4, 1e1, 1e-3, 1e-3, 1e-1],)
+    COAST = ([1e-4, 1e-4, 1e-4, 1, 1, 1],)
+    FREEFALL = ([10, 10, 10, 1e6, 1e6, 1e6],)
+    LANDED = ([1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6],)
 
     @property
     def array(self) -> npt.NDArray:
@@ -67,11 +69,11 @@ class StateProcessCovariance(Enum):
 class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
 
-    STANDBY = ([0.44025, 5e-6, 5e-6, 5e-6, 1e-3, 1e-3, 1e-3],)
-    MOTOR_BURN = ([70, 1e1, 1e1, 1e1, 1e-5, 1e-5, 1e-5],)
+    STANDBY = ([0.44025, 5e-3, 5e-3, 5e-3, 2e-4, 2e-4, 2e-4],)
+    MOTOR_BURN = ([1, 3e-2, 4e-2, 1e-3, 4e-4, 2e-4, 5e-3],)
     COAST = ([0.04, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4],)
     FREEFALL = ([0.04, 1e-2, 1e-2, 1e-2, 1e2, 1e2, 1e2],)
-    LANDED = ([0.44025, 5e-6, 5e-6, 5e-6, 1e-3, 1e-3, 1e-3],)
+    LANDED = ([0.44025, 5e-6, 5e-6, 5e-6, 1e-3, 1e-3, 1e-3],)   
 
     @property
     def matrix(self) -> npt.NDArray:
@@ -115,4 +117,17 @@ DRAG_COEFFICIENT = 0.45
 #TIMESTAMP_COL_NAME = "update_timestamp_ns"
 TIMESTAMP_COL_NAME = "timestamp"
 #LOG_HEADER_STATES = {0: "current_altitude", 1: "vertical_velocity", 2: "estCompensatedAccelX", 3: "estAngularRateX",  4: "estAngularRateY", 5: "estAngularRateZ"}
-LOG_HEADER_STATES = {0: "current_altitude", 1: "vertical_velocity", 2: "scaledAccelZ", 3: "scaledGyroX",  4: "scaledGyroY", 5: "scaledGyroZ"}
+LOG_HEADER_STATES = {
+    0: "current_altitude",
+    1: "vertical_velocity",
+    2: "scaledAccelX",
+    3:"scaledAccelY",
+    4: "scaledAccelZ",
+    5: "scaledGyroX",
+    6: "scaledGyroY",
+    7: "scaledGyroZ",
+    8: "estOrientQuaternionW",
+    9: "estOrientQuaternionX",
+    10: "estOrientQuaternionY",
+    11: "estOrientQuaternionZ",
+    }

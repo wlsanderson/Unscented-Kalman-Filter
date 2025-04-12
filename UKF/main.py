@@ -4,23 +4,23 @@ from UKF.data_processor import DataProcessor
 from pathlib import Path
 from UKF.constants import States
 import numpy as np
-from scipy.spatial.transform import Rotation as R
+import quaternion
 
 def compute_pitch(X_data):
-    q = X_data[:, 6:10]  # [qw, qx, qy, qz]
-    # Convert to scipy-friendly order: [qx, qy, qz, qw]
-    q_scipy = np.column_stack([q[:, 1], q[:, 2], q[:, 3], q[:, 0]])
-    r = R.from_quat(q_scipy)
-    euler = r.as_euler('zyx', degrees=True)  # yaw, pitch, roll
+    q = X_data[:, 8:12]
+    r = quaternion.from_float_array(q)
+    euler = quaternion.as_euler_angles(r)
     pitch = euler[:, 1]  # second column is pitch
-    return pitch
+    return pitch * (180/np.pi)
 
 def run():
     launch_log = Path("launch_data/pelicanator_launch_2.csv")
 
-    min_r = 8900
-    max_r=11500
-    #plot_state = [States.ACCELERATION.value]
+    min_r = 5002
+    max_r=9700
+    #plot_state = [States.GYRO_Y.value, States.GYRO_Z.value]
+    #plot_state = [States.QUAT_X.value, States.QUAT_Z.value]
+    #plot_state = [States.ACCELERATION_Z.value, compute_pitch]
     plot_state = compute_pitch
 
     plotter = Plotter(state_index=plot_state, file_path=launch_log, min_r=min_r, max_r=max_r)

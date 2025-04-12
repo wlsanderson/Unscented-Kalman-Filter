@@ -1,5 +1,7 @@
 import numpy as np
 import numpy.typing as npt
+import quaternion
+
 
 def quat_multiply(q1, q0):
     q1 = np.atleast_2d(q1)
@@ -16,12 +18,14 @@ def quat_multiply(q1, q0):
         -x1 * z0 + y1 * w0 + z1 * x0 + w1 * y0,
          x1 * y0 - y1 * x0 + z1 * w0 + w1 * z0
     ], axis=1)
+    result /= np.linalg.norm(result)
     return result[0] if result.shape[0] == 1 else result
 
 def quat_inv(quat):
     q = np.atleast_2d(quat)
     w, x, y, z = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
     result = np.stack([w, -x, -y, -z], axis=1)
+    result /= np.linalg.norm(result)
     return result[0] if result.shape[0] == 1 else result
 
 def rotvec2quat(rotvec, dt=1):
@@ -39,6 +43,7 @@ def rotvec2quat(rotvec, dt=1):
     w = np.cos(angles[valid] / 2)
     xyz = axis[valid] * np.sin(angles[valid] / 2)[:, None]
     result[valid] = np.concatenate([w[:, None], xyz], axis=1)
+    result /= np.linalg.norm(result)
 
     return result[0] if result.shape[0] == 1 else result
     
@@ -65,5 +70,6 @@ def quat_rotate(
     Need to check if this is rotating from global frame -> vehicle frame, or
     vehicle frame -> global frame.
     """
-    v = np.concatenate([[0], v])
-    return quat_multiply(quat, quat_multiply(v, quat_inv(quat)))[1:]
+    quat = quaternion.from_float_array(quat)
+    v = quaternion.from_float_array(np.concatenate([[0], v]))
+    return quaternion.as_float_array(quat * v *  quat.conjugate())

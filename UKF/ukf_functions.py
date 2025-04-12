@@ -1,41 +1,51 @@
 from UKF.constants import GRAVITY, DRAG_COEFFICIENT, ROCKET_MASS, REFERENCE_AREA, AIR_DENSITY
 import numpy as np
 import numpy.typing as npt
-from UKF.quaternion import rotvec2quat, quat_multiply, quat_rotate
+import quaternion as q
 
 def measurement_function(sigmas, **H_args):
+    n = len(sigmas)
     init_alt = H_args["H_args"]
-    global_acc = np.array([0, 0, -sigmas[2] / GRAVITY])
-    acc = quat_rotate(sigmas[6:10], global_acc)
+    global_acc = np.array([sigmas[2], sigmas[3], sigmas[4]])
+    global_acc = q.from_float_array(np.concatenate([[0],global_acc / -GRAVITY]))
+    quat = q.from_float_array(sigmas[n-4:n])
+    acc = quat * global_acc * quat.conjugate()
     alt = sigmas[0] + init_alt
-    gyro = sigmas[3:6]
-    return np.array([alt, acc[0], acc[1], acc[2], gyro[0], gyro[1], gyro[2]])
+    gyro = sigmas[n-7:n-4]
+
+    return np.array([alt, acc.x, acc.y, acc.z, gyro[0], gyro[1], gyro[2]])
 
 def base_state_transition(sigmas, dt, drag_option: bool = False, *F_args) -> npt.NDArray:
-    next_acc = sigmas[2]
-    next_vel = sigmas[1] + (next_acc - 9.81) * dt
+    n = len(sigmas)
+    next_accs = sigmas[2:5]
+    next_vel = sigmas[1] + (next_accs[2] - GRAVITY) * dt
     if drag_option:
-        next_acc = next_acc - dt * calc_drag(next_vel) / ROCKET_MASS
-        next_vel = sigmas[1] + (next_acc - 9.81) * dt
-    next_alt = sigmas[0] + (next_vel * dt) + 0.5 * (next_acc * dt**2)
+        next_accs[2] = next_accs[2] - dt * calc_drag(next_vel) / ROCKET_MASS
+        next_vel = sigmas[1] + (next_accs[2] - 9.81) * dt
+    next_alt = sigmas[0] + (next_vel * dt) + 0.5 * (next_accs[2] * dt**2)
 
-    gyro_x = sigmas[3]
-    gyro_y = sigmas[4]
-    gyro_z = sigmas[5]
+    delta_theta = sigmas[n-7:n-4] * dt
 
-    delta_quat = rotvec2quat(sigmas[3:6], dt)
-    quat = quat_multiply(sigmas[6:10], delta_quat)
+    delta_theta[0] = delta_theta[0]*np.cos(-delta_theta[2])-delta_theta[1]*np.sin(-delta_theta[2])
+    delta_theta[1] = delta_theta[0]*np.sin(-delta_theta[2])+delta_theta[1]*np.cos(-delta_theta[2])
+
+    quat = q.from_float_array(sigmas[n-4:n])
+    q_next = quat * q.from_rotation_vector(delta_theta)
+    q_next = q_next.normalized()
+
     return np.array([
         next_alt,
         next_vel, 
-        next_acc,
-        gyro_x,
-        gyro_y,
-        gyro_z,
-        quat[0],
-        quat[1],
-        quat[2],
-        quat[3]
+        next_accs[0],
+        next_accs[1],
+        next_accs[2],
+        delta_theta[0]/dt,
+        delta_theta[1]/dt,
+        delta_theta[2]/dt,
+        q_next.w,
+        q_next.x,
+        q_next.y,
+        q_next.z
         ])
 
 def calc_drag(velocity):

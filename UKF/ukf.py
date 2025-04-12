@@ -4,7 +4,7 @@ import scipy
 import scipy.linalg
 
 from UKF.sigma_points import SigmaPoints
-from UKF.quaternion import quat_multiply, quat2rotvec, rotvec2quat, quat_inv
+import quaternion
 
 
 class UKF:
@@ -22,6 +22,9 @@ class UKF:
         "_num_sigmas",
         "_sigmas_f",
         "_sigmas_h",
+        "_quat_idx",
+        "_rotvec_idx",
+        "_vec_idx",
     )
 
     def __init__(self, dim_x: int, dim_z: int, points: SigmaPoints):
@@ -38,8 +41,14 @@ class UKF:
         self._num_sigmas = self._sigma_points_class.num_sigmas()
         self._sigmas_f = np.zeros([self._num_sigmas, dim_x])
         self._sigmas_h = np.zeros([self._num_sigmas, dim_z])
+        self._quat_idx = slice(dim_x - 4, dim_x)
+        self._rotvec_idx = slice(dim_x - 4, dim_x - 1)
+        self._vec_idx = slice(0, dim_x - 4)
+        
 
     def predict(self, dt):
+        if (dt < 1e-12):
+            raise ValueError("dt must be positive and non-zero")
         self.compute_process_sigmas(dt, self.Q(dt))
         self.X, self.P = self._unscented_transform_F(
             sigmas = self._sigmas_f,
@@ -66,45 +75,41 @@ class UKF:
         residual = np.subtract(z, pred_z)
 
         delta_x =  np.dot(kalman_gain, residual)
-        delta_q = rotvec2quat(delta_x[6:9])
-        self.X[0:6] += delta_x[0:6]
-        self.X[6:10] = quat_multiply(delta_q, self.X[6:10])
-        self.X[6:10] = self.X[6:10] / np.linalg.norm(self.X[6:10])
+        quat = quaternion.from_float_array(self.X[self._quat_idx])
+        delta_q = quaternion.from_rotation_vector(delta_x[self._rotvec_idx])
+        self.X[self._vec_idx] += delta_x[self._vec_idx]
+        self.X[self._quat_idx] = quaternion.as_float_array(delta_q * quat)
         self.P = self.P - np.dot(kalman_gain, np.dot(innovation_cov, kalman_gain.T))
         self.P = 0.5 * (self.P + self.P.T)  # enforce symmetry
         eigvals, eigvecs = np.linalg.eigh(self.P)
         eigvals = np.clip(eigvals, 1e-8, None)  # enforce PSD
         self.P = eigvecs @ np.diag(eigvals) @ eigvecs.T
 
-    @staticmethod
-    def _unscented_transform_F(sigmas: npt.NDArray[np.float64], Wm, Wc, X=None):
+    def _unscented_transform_F(self, sigmas: npt.NDArray[np.float64], Wm, Wc, X):
         # splitting sigma points up into vector states and quaternion states
-        vector_sigmas = sigmas[:, 0:6]
-        quat_sigmas = sigmas[:, 6:10]
+        vector_sigmas = sigmas[:, self._vec_idx]
+        quat_sigmas = quaternion.from_float_array(sigmas[:, self._quat_idx])
+        quat_state = quaternion.from_float_array(X[self._quat_idx])
         # small delta quaternions are made by multiplying the quaternion sigmas by the
         # inverse of the current quaternion state
-        delta_quats = quat_multiply(quat_sigmas, quat_inv(X[6:10]))
+        delta_quats = quat_sigmas * quat_state.conjugate()
         # delta quaternion rotations are converted into delta rotation vectors
-        delta_rotvecs = quat2rotvec(delta_quats)
+        delta_rotvecs = quaternion.as_rotation_vector(delta_quats)
         # the mean of the rotation vector is calculated by multiplying each sigma by each weight
         # this mean cannot be calculated with quaternions directly due to the inability to sum
         # them.
         mean_delta_rotvec = np.dot(Wm, delta_rotvecs)
         # mean delta rotation vector is transformed back into a mean delta quaternion and
         # multiplied into the state to get the quaternion prediction
-        mean_quat = quat_multiply(rotvec2quat(mean_delta_rotvec), X[6:10])
+        mean_delta_quat = quaternion.from_rotation_vector(mean_delta_rotvec)
+        mean_quat = quaternion.as_float_array(mean_delta_quat * quat_state)
         # the vector portion of the sigma points are calculated normally
         vector_mean = np.dot(Wm, vector_sigmas)
         x_mean = np.concatenate([vector_mean, mean_quat])
 
-        quat_covariance = (delta_rotvecs.T * Wc) @ delta_rotvecs
         vec_residual = vector_sigmas - vector_mean[np.newaxis, :]
-        vec_covariance = (vec_residual.T * Wc) @  vec_residual
-        
-        # IMPORTANT: using block_diag means that there will NEVER be cross-covariances
-        # between the vector components and quaternion components. This is for simplicity
-        # but is not accurate, and should be later reconsidered if inadequate
-        P_covariance = scipy.linalg.block_diag(vec_covariance, quat_covariance)
+        full_residuals = np.hstack((vec_residual, delta_rotvecs))
+        P_covariance = (full_residuals.T * Wc) @  full_residuals
         return (x_mean, P_covariance)
     
     @staticmethod
@@ -123,17 +128,16 @@ class UKF:
         for i, s in enumerate(sigmas):
             self._sigmas_f[i] = self.F(s, dt, F_args)
 
-
     def _calculate_cross_cov(self, x, z):
         P_cross_cov = np.zeros((self._sigmas_f.shape[1] - 1, self._sigmas_h.shape[1]))
 
         n = self._sigmas_f.shape[0]
         for i in range(n):
-            dx_vector = np.subtract(self._sigmas_f[i][0:6], x[0:6])
-            quat_sigmas_f = self._sigmas_f[i][6:10]
-            quat_sigmas_f = quat_sigmas_f / np.linalg.norm(quat_sigmas_f)
-            delta_quats = quat_multiply(quat_sigmas_f, quat_inv(x[6:10]))
-            delta_rotvecs = quat2rotvec(delta_quats)
+            dx_vector = np.subtract(self._sigmas_f[i][self._vec_idx], x[self._vec_idx])
+            quat_sigmas_f = quaternion.from_float_array(self._sigmas_f[i][self._quat_idx])
+            quat_x = quaternion.from_float_array(x[self._quat_idx])
+            delta_quats = quat_sigmas_f * quat_x.conjugate()
+            delta_rotvecs = quaternion.as_rotation_vector(delta_quats)
             dx = np.concatenate([dx_vector, delta_rotvecs])
             dz = np.subtract(self._sigmas_h[i], z)
             P_cross_cov += self._sigma_points_class.Wc[i] * np.outer(dx, dz)

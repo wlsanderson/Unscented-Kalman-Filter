@@ -40,6 +40,24 @@ wheels = [
 ]
 
 [[package]]
+name = "numpy-quaternion"
+version = "2024.0.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/59/3c/0dc1f644316f623fcb3d60f07cc62bfd6bec879fff1d1cd56c376c21511a/numpy_quaternion-2024.0.8.tar.gz", hash = "sha256:764b97a1be816671b5308777efde7dfbcfa9dab0d650d454ce0314e0879434ac", size = 67047 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/7a/da6925e18e395be0a94ea2cd7636b5d610e5d1d5f0402b8719d76d4da0b2/numpy_quaternion-2024.0.8-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:e3743df6ddecd478f8e2bd12b82fa161072d90cf463286ec799040e6dcbfa183", size = 86623 },
+    { url = "https://files.pythonhosted.org/packages/c1/1d/7a2bc8dfc997ce312665aabb94f9189ed7b792eec90b8286c4e004cf6361/numpy_quaternion-2024.0.8-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:79873e7d57fd83f347438a18a9233b73df5c3c436f137c3fe26c72b98b32962c", size = 61449 },
+    { url = "https://files.pythonhosted.org/packages/be/aa/063839099b24d47b7746468cbe2c2cec1d8533f8a6481a6668df4fcfe0d7/numpy_quaternion-2024.0.8-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:ebcdc05b18ef8cb317523f17bd08d36d63c48c52b4d35871bc06500d942501e3", size = 55428 },
+    { url = "https://files.pythonhosted.org/packages/38/e6/54289204e363505636e60a05b3f7c2b6f800bea022a999896aab927fd017/numpy_quaternion-2024.0.8-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ec2471dcb3f0342e67d29bfbacb939028e28f3db454c30ec4c7720a1f51ad7b9", size = 184787 },
+    { url = "https://files.pythonhosted.org/packages/f9/94/29b2ec6204b76cf05b725ce16eb9bf83366ff695fae6172de8cd371f0c05/numpy_quaternion-2024.0.8-cp313-cp313-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:11545204eba62a84a63e5e80d97c5305a525f48f6e5206b95bf38b5462db561d", size = 200763 },
+    { url = "https://files.pythonhosted.org/packages/13/0e/accf8f6596d2ffe7fe000a9e9f7f09b38782e3c6e7e3981ffcc028ac086f/numpy_quaternion-2024.0.8-cp313-cp313-win_amd64.whl", hash = "sha256:10022a65ac2429b8152f99854e7ee2ede054a5af3d16931c43723f694c2ec580", size = 70773 },
+]
+
+[[package]]
 name = "packaging"
 version = "24.2"
 source = { registry = "https://pypi.org/simple" }
@@ -180,6 +198,7 @@ version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
+    { name = "numpy-quaternion" },
     { name = "pandas" },
     { name = "plotly" },
     { name = "pyinstrument" },
@@ -189,6 +208,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "numpy", specifier = ">=2.2.4" },
+    { name = "numpy-quaternion", specifier = ">=2024.0.8" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "plotly", specifier = ">=6.0.1" },
     { name = "pyinstrument", specifier = ">=5.0.1" },

@@ -84,10 +84,10 @@ class State(ABC):
         Process noise covariance matrix
         """
         qvar = self.qvar * dt
-        n = qvar.shape[0]
-        mats = np.zeros((n, 3, 3), dtype=np.float64)
-        mats[:, 2, 2] = qvar
-        return scipy.linalg.block_diag(*mats)
+        kinematic_q = np.diag([0, 0, qvar[0], qvar[1], qvar[2]])
+        gyro_q = np.diag([qvar[3],qvar[4],qvar[5]])
+        quat_q = np.diag([0, 0, 0])
+        return scipy.linalg.block_diag(kinematic_q, gyro_q, quat_q)
 
 
 class StandbyState(State):
@@ -112,7 +112,7 @@ class StandbyState(State):
         """
 
         # If the velocity of the rocket is above a threshold, the rocket has launched.
-        if self.context.measurement[4] < -TAKEOFF_ACCELERATION_GS *1e6:
+        if self.context.measurement[4] < -TAKEOFF_ACCELERATION_GS:
             self.next_state()
             return
 
@@ -143,7 +143,6 @@ class MotorBurnState(State):
 
     def __init__(self, context: "Context"):
         super().__init__(context)
-        self.context.ukf.P = np.add(self.context.ukf.P, 0.1)
 
     def update(self):
         """Checks to see if the velocity has decreased lower than the maximum velocity, indicating
@@ -186,7 +185,6 @@ class CoastState(State):
     
     def __init__(self, context: "Context"):
         super().__init__(context)
-        self.context.ukf.P = np.add(self.context.ukf.P, 0.01)
 
     def update(self):
         """Checks to see if the rocket has reached apogee, indicating the start of free fall."""

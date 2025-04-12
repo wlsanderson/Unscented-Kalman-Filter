@@ -4,7 +4,7 @@ Edgar Kraft's paper on quaternion UKF's.
 """
 import numpy as np
 import numpy.typing as npt
-from UKF.quaternion import quat_multiply, quat_inv, rotvec2quat
+import quaternion
 
 class SigmaPoints:
     __slots__ = (
@@ -14,6 +14,10 @@ class SigmaPoints:
         "_kappa",
         "Wm",
         "Wc",
+        "_quat_idx",
+        "_rotvec_idx",
+        "_vec_idx",
+
     )
 
     def __init__(self, n, alpha, beta, kappa):
@@ -26,6 +30,10 @@ class SigmaPoints:
         self.Wc: npt.NDArray = None
 
         self._compute_weights()
+        self._quat_idx = slice(n - 3, n + 1)
+        self._rotvec_idx = slice(n - 3, n)
+        self._vec_idx = slice(0, n - 3)
+
 
 
     def _compute_weights(self) -> None:
@@ -48,7 +56,6 @@ class SigmaPoints:
         state_dim = len(X)
         lambda_ = self._alpha**2 * (self._n + self._kappa) - self._n
         P = 0.5 * (P + P.T)
-        #print(np.linalg.eigvals(P))
 
         scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + self._n)*(P + Q), upper=True)
         
@@ -56,14 +63,14 @@ class SigmaPoints:
         sigmas[0] = X
 
         for i in range(self._n):
-            sigmas[i+1][:6] = np.subtract(X[:6], -scaled_cholesky_sqrt[i][:6])
-            sigmas[self._n+i+1][:6] = np.subtract(X[:6], scaled_cholesky_sqrt[i][:6])
+            sigmas[i+1][self._vec_idx] = np.subtract(X[self._vec_idx], -scaled_cholesky_sqrt[i][self._vec_idx])
+            sigmas[self._n+i+1][self._vec_idx] = np.subtract(X[self._vec_idx], scaled_cholesky_sqrt[i][self._vec_idx])
 
-            quat_sqrt = scaled_cholesky_sqrt[i][6:9]
-            quat_sigma = rotvec2quat(quat_sqrt)
-
-            sigmas[i+1][6:10] = quat_multiply(X[6:10], quat_sigma)
-            sigmas[self._n+i+1][6:10] = quat_multiply(X[6:10], quat_inv(quat_sigma))
+            rotvec_sqrt = scaled_cholesky_sqrt[i][6:9]
+            quat_sigma = quaternion.from_rotation_vector(rotvec_sqrt)
+            quat_X = quaternion.from_float_array(X[self._quat_idx])
+            sigmas[i+1][self._quat_idx] = quaternion.as_float_array(quat_X * quat_sigma)
+            sigmas[self._n+i+1][self._quat_idx] = quaternion.as_float_array(quat_X * quat_sigma.conjugate())
         return sigmas
 
     def num_sigmas(self) -> int:

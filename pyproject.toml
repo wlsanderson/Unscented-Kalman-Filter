@@ -6,6 +6,7 @@ version = "1.0.0"
 readme = "README.md"
 dependencies = [
     "numpy>=2.2.4",
+    "numpy-quaternion>=2024.0.8",
     "pandas>=2.2.3",
     "plotly>=6.0.1",
     "pyinstrument>=5.0.1",

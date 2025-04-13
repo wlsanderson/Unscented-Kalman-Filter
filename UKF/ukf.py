@@ -1,7 +1,5 @@
 import numpy as np
 import numpy.typing as npt
-import scipy
-import scipy.linalg
 
 from UKF.sigma_points import SigmaPoints
 import quaternion
@@ -25,6 +23,9 @@ class UKF:
         "_quat_idx",
         "_rotvec_idx",
         "_vec_idx",
+        "pred_z",
+        "mahalanobis_dist",
+        "z_error_score",
     )
 
     def __init__(self, dim_x: int, dim_z: int, points: SigmaPoints):
@@ -44,7 +45,13 @@ class UKF:
         self._quat_idx = slice(dim_x - 4, dim_x)
         self._rotvec_idx = slice(dim_x - 4, dim_x - 1)
         self._vec_idx = slice(0, dim_x - 4)
-        
+
+        # debug/analysis stuff
+        self.pred_z = None
+        self.mahalanobis_dist = None
+        self.z_error_score = None
+
+
 
     def predict(self, dt):
         if (dt < 1e-12):
@@ -57,10 +64,10 @@ class UKF:
             X = self.X,
         )
 
-    def update(self, z, **H_args):
+    def update(self, z, init_alt):
         sigmas_h = []
         for s in self._sigmas_f:
-            sigmas_h.append(self.H(s, **H_args))
+            sigmas_h.append(self.H(s, init_alt))
         self._sigmas_h = np.atleast_2d(sigmas_h)
         pred_z, innovation_cov = self._unscented_transform_H(
             self._sigmas_h,
@@ -68,11 +75,16 @@ class UKF:
             self._sigma_points_class.Wc,
             self.R
             )
+        self.pred_z = pred_z
         innovation_cov_inv = np.linalg.inv(innovation_cov)
         P_cross_covariance = self._calculate_cross_cov(self.X, pred_z)
 
         kalman_gain = np.dot(P_cross_covariance, innovation_cov_inv)
+        kalman_gain[self._rotvec_idx, 1:4] = 0.0
         residual = np.subtract(z, pred_z)
+
+        self.mahalanobis_dist = residual.T @ innovation_cov_inv @ residual
+        self.z_error_score = (residual**2) / np.diag(innovation_cov)
 
         delta_x =  np.dot(kalman_gain, residual)
         quat = quaternion.from_float_array(self.X[self._quat_idx])
@@ -82,7 +94,7 @@ class UKF:
         self.P = self.P - np.dot(kalman_gain, np.dot(innovation_cov, kalman_gain.T))
         self.P = 0.5 * (self.P + self.P.T)  # enforce symmetry
         eigvals, eigvecs = np.linalg.eigh(self.P)
-        eigvals = np.clip(eigvals, 1e-8, None)  # enforce PSD
+        eigvals = np.clip(eigvals, 1e-8, None)
         self.P = eigvecs @ np.diag(eigvals) @ eigvecs.T
 
     def _unscented_transform_F(self, sigmas: npt.NDArray[np.float64], Wm, Wc, X):
@@ -123,10 +135,10 @@ class UKF:
             P_covariance += noise_cov
         return (x_mean, P_covariance)
 
-    def compute_process_sigmas(self, dt, Q, **F_args):
+    def compute_process_sigmas(self, dt, Q):
         sigmas = self._sigma_points_class.calculate_sigma_points(self.X, self.P, Q)
         for i, s in enumerate(sigmas):
-            self._sigmas_f[i] = self.F(s, dt, F_args)
+            self._sigmas_f[i] = self.F(s, dt)
 
     def _calculate_cross_cov(self, x, z):
         P_cross_cov = np.zeros((self._sigmas_f.shape[1] - 1, self._sigmas_h.shape[1]))

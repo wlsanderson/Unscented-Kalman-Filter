@@ -2,7 +2,7 @@ from UKF.context import Context
 from UKF.plotter import Plotter
 from UKF.data_processor import DataProcessor
 from pathlib import Path
-from UKF.constants import States
+
 import numpy as np
 import quaternion
 
@@ -16,14 +16,11 @@ def compute_pitch(X_data):
 def run():
     launch_log = Path("launch_data/pelicanator_launch_2.csv")
 
-    min_r = 5002
-    max_r=9700
-    #plot_state = [States.GYRO_Y.value, States.GYRO_Z.value]
-    #plot_state = [States.QUAT_X.value, States.QUAT_Z.value]
-    #plot_state = [States.ACCELERATION_Z.value, compute_pitch]
-    plot_state = compute_pitch
+    min_r = 5005
+    max_r = 9500
 
-    plotter = Plotter(state_index=plot_state, file_path=launch_log, min_r=min_r, max_r=max_r)
+
+    plotter = Plotter(file_path=launch_log, min_r=min_r, max_r=max_r)
     data_processor = DataProcessor(launch_log, min_r=min_r, max_r=max_r)
     context = Context(data_processor, plotter=plotter)
     run_data_loop(context)

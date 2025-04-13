@@ -33,9 +33,9 @@ MEASUREMENT_FIELDS = [
     "scaledAccelX",
     "scaledAccelY",
     "scaledAccelZ",
-    "scaledGyroX",
-    "scaledGyroY",
-    "scaledGyroZ",
+    "estAngularRateX",
+    "estAngularRateY",
+    "estAngularRateZ",
     ]
 # MEASUREMENT_FIELDS = [
 #     "pressureAlt",
@@ -54,8 +54,8 @@ MEASUREMENT_FIELDS = [
 class StateProcessCovariance(Enum):
     """Enum that represents process variance scalars on kinematic and gyro covariances"""
     # acc x, acc y, acc z, gyro x, gyro y, gyro z
-    STANDBY = ([1e-2, 1e-2, 1e-4, 2e-4, 2e-4, 2e-4],)
-    MOTOR_BURN= ([1e-4, 1e-4, 1e1, 1e-3, 1e-3, 1e-1],)
+    STANDBY = ([1, 1, 1, 1e-6, 1e-6, 1e-6],)
+    MOTOR_BURN= ([1e-4, 1e-4, 1e-1, 1e-1, 1e-1, 1e-1],)
     COAST = ([1e-4, 1e-4, 1e-4, 1, 1, 1],)
     FREEFALL = ([10, 10, 10, 1e6, 1e6, 1e6],)
     LANDED = ([1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6],)
@@ -69,8 +69,8 @@ class StateProcessCovariance(Enum):
 class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
 
-    STANDBY = ([0.44025, 5e-3, 5e-3, 5e-3, 2e-4, 2e-4, 2e-4],)
-    MOTOR_BURN = ([1, 3e-2, 4e-2, 1e-3, 4e-4, 2e-4, 5e-3],)
+    STANDBY = ([1e-2, 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4],)
+    MOTOR_BURN = ([1e-1, 3e-2, 4e-2, 1e-3, 4e-4, 2e-4, 5e-3],)
     COAST = ([0.04, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4],)
     FREEFALL = ([0.04, 1e-2, 1e-2, 1e-2, 1e2, 1e2, 1e2],)
     LANDED = ([0.44025, 5e-6, 5e-6, 5e-6, 1e-3, 1e-3, 1e-3],)   
@@ -95,9 +95,9 @@ class MagneticField(Enum):
 
 
 # Sigma Point Constants
-ALPHA = 0.1
+ALPHA = 0.001
 BETA = 2
-KAPPA = 0
+KAPPA = 3-STATE_DIM
 
 # State changes
 TAKEOFF_ACCELERATION_GS = 6
@@ -121,11 +121,11 @@ LOG_HEADER_STATES = {
     0: "current_altitude",
     1: "vertical_velocity",
     2: "scaledAccelX",
-    3:"scaledAccelY",
+    3: "scaledAccelY",
     4: "scaledAccelZ",
-    5: "scaledGyroX",
-    6: "scaledGyroY",
-    7: "scaledGyroZ",
+    5: "estAngularRateX",
+    6: "estAngularRateY",
+    7: "estAngularRateZ",
     8: "estOrientQuaternionW",
     9: "estOrientQuaternionX",
     10: "estOrientQuaternionY",

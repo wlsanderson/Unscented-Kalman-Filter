@@ -3,11 +3,10 @@ import numpy as np
 import numpy.typing as npt
 import quaternion as q
 
-def measurement_function(sigmas, **H_args):
+def measurement_function(sigmas, init_alt, adjust_gyro_w_acc: bool = False):
     n = len(sigmas)
-    init_alt = H_args["H_args"]
-    global_acc = np.array([sigmas[2], sigmas[3], sigmas[4]])
-    global_acc = q.from_float_array(np.concatenate([[0],global_acc / -GRAVITY]))
+    global_acc = np.array([sigmas[2], sigmas[3], -sigmas[4]])
+    global_acc = q.from_float_array(np.concatenate([[0],global_acc / GRAVITY]))
     quat = q.from_float_array(sigmas[n-4:n])
     acc = quat * global_acc * quat.conjugate()
     alt = sigmas[0] + init_alt
@@ -15,7 +14,7 @@ def measurement_function(sigmas, **H_args):
 
     return np.array([alt, acc.x, acc.y, acc.z, gyro[0], gyro[1], gyro[2]])
 
-def base_state_transition(sigmas, dt, drag_option: bool = False, *F_args) -> npt.NDArray:
+def state_transition_function(sigmas, dt, drag_option: bool = False) -> npt.NDArray:
     n = len(sigmas)
     next_accs = sigmas[2:5]
     next_vel = sigmas[1] + (next_accs[2] - GRAVITY) * dt

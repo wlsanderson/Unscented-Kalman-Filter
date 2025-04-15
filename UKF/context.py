@@ -1,7 +1,7 @@
 from UKF.ukf import UKF
 from UKF.sigma_points import SigmaPoints
 from UKF.data_processor import DataProcessor
-from UKF.constants import STATE_DIM, ALPHA, BETA, KAPPA, MEASUREMENT_DIM, INITIAL_STATE_ESTIMATE, INITIAL_STATE_COV
+from UKF.constants import STATE_DIM, ALPHA, BETA, KAPPA, MEASUREMENT_DIM, INITIAL_STATE_ESTIMATE, INITIAL_STATE_COV, TIMESTAMP_UNITS
 from UKF.ukf_functions import measurement_function
 from UKF.plotter import Plotter
 from UKF.state import State, StandbyState
@@ -59,54 +59,57 @@ class Context:
     def update(self):
         data = self.data_processor.fetch()
         if data is None:
-            # end of file
             if self._plotter:
                 self._plotter.start_plot()
             self.shutdown_requested = True
             return
-        measurement_noise_diag = self._get_measurement_noise(data, exclude_repeated_vals=True)
-        data = self._last # _get_measurement_noise sets _last to the updated backfilled data
-        self.measurement = data
-        if (any(var != 1e9 for var in measurement_noise_diag)):
-            self.ukf.R = np.diag(measurement_noise_diag)
-            self.ukf.predict(self._dt)
-            if self._plotter:
-                self._plotter.X_data_pred.append(self.ukf.X.copy())
-            self.ukf.update(data[1:], init_alt=self._initial_altitude)
-            if self._plotter:
-                self._plotter.X_data.append(self.ukf.X)
-                self._plotter.timestamps.append(data[0])
-                self._plotter.mahal.append(self.ukf.mahalanobis_dist)
-                self._plotter.z_error_score.append(self.ukf.z_error_score)
-            self._max_altitude = max(self._max_altitude, self.ukf.X[0])
-            self._max_velocity = max(self._max_velocity, self.ukf.X[1])
-            self._flight_state.update()
-        
-    def _get_measurement_noise(self, data: npt.NDArray[np.float64], exclude_repeated_vals: bool = False):
-        measurement_noise_diags = self._flight_state.measurement_noise_diagonals.copy()
-        # initialize R matrix with extremely high noise for repeated or null values
-        z_noise = np.full(len(measurement_noise_diags), 1e18)
-        nulls = np.isnan(data)
-        non_nan_mesurements = ~nulls[1:] # get only the null values of measurements, not timestamps
-        valid_measurements = non_nan_mesurements
-
-        # if excluding repeated values, noise will stay high for values that match their last measurement
-        if exclude_repeated_vals:
-            non_repeated_measurements = data[1:] != self._last[1:]
-            valid_measurements = valid_measurements & non_repeated_measurements
             
-        # for values that are not null and not repeated, overwrite the high noise with actual noise
-        z_noise[valid_measurements] = measurement_noise_diags[valid_measurements]
+        # fill in missing values by refetching
+        while np.isnan(data).any():
+            timestamp = data[0]
+            self._dt = (timestamp - self._last[0]) / TIMESTAMP_UNITS
+            self.ukf.predict(self._dt)
+            
+            if self._plotter:
+                self._plotter.timestamps_pred.append(data[0])
+                self._plotter.X_data_pred.append(self.ukf.X.copy())
 
-        # set the null values to the last actual non-null values recorded
-        data[nulls] = self._last[nulls]
+            new_data = self.data_processor.fetch()
+            if new_data is None:
+                if self._plotter:
+                    self._plotter.start_plot()
+                self.shutdown_requested = True
+                return
 
-        # dont calculate dt unless a ukf update will happen
-        if (any(var != 1e9 for var in z_noise)):
-            self._dt = (data[0] - self._last[0]) / 1e9
-            self._last = data
-        return z_noise
-    
+            # fill missing fields in `data` from `new_data`
+            valid = ~np.isnan(new_data)
+            data[valid] = new_data[valid]
+
+
+        # full row ready, run normal update
+        self._dt = (data[0] - self._last[0]) / TIMESTAMP_UNITS
+        self._last[0:2] = data[0:2]  # update last after full row collected
+
+        measurement_noise_diag = self._flight_state.measurement_noise_diagonals.copy()
+        self.measurement = data
+
+        self.ukf.R = np.diag(measurement_noise_diag)
+        self.ukf.predict(self._dt)
+        if self._plotter:
+            self._plotter.timestamps_pred.append(data[0])
+            self._plotter.X_data_pred.append(self.ukf.X.copy())
+
+        self.ukf.update(data[1:], self._initial_altitude)
+        if self._plotter:
+            self._plotter.X_data.append(self.ukf.X)
+            self._plotter.timestamps.append(data[0])
+            self._plotter.mahal.append(self.ukf.mahalanobis_dist)
+            self._plotter.z_error_score.append(self.ukf.z_error_score)
+
+        self._max_altitude = max(self._max_altitude, self.ukf.X[0])
+        self._max_velocity = max(self._max_velocity, self.ukf.X[1])
+        self._flight_state.update()
+            
     def set_ukf_functions(self): 
         self.ukf.F = self._flight_state.state_transition_function
         self.ukf.Q = self._flight_state.process_covariance_function

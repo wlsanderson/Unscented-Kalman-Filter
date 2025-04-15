@@ -175,7 +175,7 @@ class MotorBurnState(State):
         self.context._flight_state = CoastState(self.context)
 
     def state_transition_function(self, sigma_points, dt):
-        return state_transition_function(sigma_points, dt, True)
+        return state_transition_function(sigma_points, dt, False)
     def measurement_function(self, sigmas, init_alt):
         return measurement_function(sigmas, init_alt)    
 

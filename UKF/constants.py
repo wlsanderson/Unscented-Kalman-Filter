@@ -5,7 +5,7 @@ from enum import Enum
 # state vector constants
 STATE_DIM = 12
 """Altitude, Vertical Velocity, accel x, accel y, accel z, Gyro X, Gyro Y, Gyro Z, qw, qx, qy, qz"""
-INITIAL_STATE_ESTIMATE = np.array([0.1, 0.1, 0.1, 0.1, 9.8, 0.0, 0.0, 0.0, 0.4686, 0, -0.01765, -0.88337])
+INITIAL_STATE_ESTIMATE = np.array([0.1, 0.1, 0.1, 0.1, -9.8, 0.0, 0.0, 0.0, 0.4686, 0, -0.01765, -0.88337])
 
 class States(Enum):
     """Represents the state names and associated index of state vector"""
@@ -24,12 +24,12 @@ class States(Enum):
 
 
 # initial state covariance
-INITIAL_STATE_COV = np.diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
+INITIAL_STATE_COV = np.diag([0.1, 0.01, 1, 1, 0.5, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1])
 
 # measurement vector constants
 MEASUREMENT_DIM = 7
 MEASUREMENT_FIELDS = [
-    "estPressureAlt",
+    "alt_interp_rand",
     "scaledAccelX",
     "scaledAccelY",
     "scaledAccelZ",
@@ -54,8 +54,8 @@ MEASUREMENT_FIELDS = [
 class StateProcessCovariance(Enum):
     """Enum that represents process variance scalars on kinematic and gyro covariances"""
     # acc x, acc y, acc z, gyro x, gyro y, gyro z
-    STANDBY = ([1, 1, 1, 1e-6, 1e-6, 1e-6],)
-    MOTOR_BURN= ([1e-4, 1e-4, 1e-1, 1e-1, 1e-1, 1e-1],)
+    STANDBY = ([1e-4, 1e-4, 1e-4, 1e-4, 5e-5, 2e-5],)
+    MOTOR_BURN= ([1e2, 1e2, 1e2, 1e2, 1e2, 1e2],)
     COAST = ([1e-4, 1e-4, 1e-4, 1, 1, 1],)
     FREEFALL = ([10, 10, 10, 1e6, 1e6, 1e6],)
     LANDED = ([1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6],)
@@ -69,8 +69,8 @@ class StateProcessCovariance(Enum):
 class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
 
-    STANDBY = ([1e-2, 1e-6, 1e-6, 1e-6, 1e-4, 1e-4, 1e-4],)
-    MOTOR_BURN = ([1e-1, 3e-2, 4e-2, 1e-3, 4e-4, 2e-4, 5e-3],)
+    STANDBY = ([1, 4e-4, 4e-4, 3e-5, 2e-4, 2e-4, 1e-3],)
+    MOTOR_BURN = ([1e-1, 1e-3, 1e-3, 1e-3, 3e-4, 3e-4, 1e-3],)
     COAST = ([0.04, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4],)
     FREEFALL = ([0.04, 1e-2, 1e-2, 1e-2, 1e2, 1e2, 1e2],)
     LANDED = ([0.44025, 5e-6, 5e-6, 5e-6, 1e-3, 1e-3, 1e-3],)   
@@ -95,19 +95,19 @@ class MagneticField(Enum):
 
 
 # Sigma Point Constants
-ALPHA = 0.001
+ALPHA = 0.3
 BETA = 2
 KAPPA = 3-STATE_DIM
 
 # State changes
-TAKEOFF_ACCELERATION_GS = 6
+TAKEOFF_ACCELERATION_GS = 2
 MAX_VELOCITY_THRESHOLD = 0.96
 MAX_ALTITUDE_THRESHOLD = 0.96
 LANDED_ACCELERATION_GS = 5
 GROUND_ALTITUDE_METERS = 20
 
 # aerodynamic constants
-GRAVITY = 9.81
+GRAVITY = 9.798
 ROCKET_MASS = 19.46
 AIR_DENSITY = 1.15
 REFERENCE_AREA = 0.01929
@@ -116,9 +116,10 @@ DRAG_COEFFICIENT = 0.45
 # log files
 #TIMESTAMP_COL_NAME = "update_timestamp_ns"
 TIMESTAMP_COL_NAME = "timestamp"
+TIMESTAMP_UNITS = 1e9
 #LOG_HEADER_STATES = {0: "current_altitude", 1: "vertical_velocity", 2: "estCompensatedAccelX", 3: "estAngularRateX",  4: "estAngularRateY", 5: "estAngularRateZ"}
 LOG_HEADER_STATES = {
-    0: "current_altitude",
+    0: "alt_interp",
     1: "vertical_velocity",
     2: "scaledAccelX",
     3: "scaledAccelY",

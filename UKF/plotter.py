@@ -1,10 +1,9 @@
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.io as pio
 from dash import Dash, dcc, html, Output, Input
 from pathlib import Path
-from UKF.constants import TIMESTAMP_COL_NAME, GRAVITY, LOG_HEADER_STATES, STATE_DIM, MEASUREMENT_FIELDS
+from UKF.constants import TIMESTAMP_COL_NAME, GRAVITY, LOG_HEADER_STATES, TIMESTAMP_UNITS, MEASUREMENT_FIELDS
 
 class Plotter:
     __slots__ = (
@@ -12,6 +11,7 @@ class Plotter:
         "X_data_pred",
         "mahal",
         "timestamps",
+        "timestamps_pred",
         "csv_data",
         "csv_time",
         "state_times",
@@ -24,6 +24,7 @@ class Plotter:
         self.z_error_score = []
         self.X_data = []
         self.X_data_pred = []
+        self.timestamps_pred = []
         self.timestamps = []
         self.state_times = []
         self.csv_data = {}
@@ -45,17 +46,20 @@ class Plotter:
             meas_col = df[col_name]
             time_col = df[TIMESTAMP_COL_NAME]
             if i in range(2, 5):
-                meas_col *= -GRAVITY
+                meas_col *= GRAVITY
             mask = meas_col.notna()
             meas_array = meas_col[mask].to_numpy(dtype=np.float64)
             time_array = time_col[mask].to_numpy(dtype=np.float64)
-            time_array = (time_array - time_array[0]) / 1e9
+            time_array = (time_array - time_array[0]) / TIMESTAMP_UNITS
             self.csv_data[i] = meas_array
             self.csv_time[i] = time_array
-
+        # subtract altitude data by first alt data point
+        self.csv_data[0] -= self.csv_data[0][0]
     def start_plot(self):
         timestamps = np.array(self.timestamps, dtype=np.float64)
-        timestamps = (timestamps - timestamps[0]) / 1e9
+        timestamps_pred = np.array(self.timestamps_pred, dtype=np.float64)
+        timestamps = (timestamps - timestamps[0]) / TIMESTAMP_UNITS
+        timestamps_pred = (timestamps_pred - timestamps_pred[0]) / TIMESTAMP_UNITS
         X_data = np.array(self.X_data, dtype=np.float64)
         X_data_pred = np.array(self.X_data_pred, dtype=np.float64) if self.X_data_pred else None
         mahal = np.array(self.mahal, dtype=np.float64) if self.mahal else None
@@ -69,7 +73,7 @@ class Plotter:
             fig.add_trace(go.Scatter(x=self.csv_time.get(s, []), y=self.csv_data.get(s, []), name=f"CSV {label}"))
             fig.add_trace(go.Scatter(x=timestamps, y=X_data[:, s] if len(X_data) else [], name=f"UKF {label}"))
             if X_data_pred is not None:
-                fig.add_trace(go.Scatter(x=timestamps, y=X_data_pred[:, s], name=f"UKF {label} pred", mode="markers"))
+                fig.add_trace(go.Scatter(x=timestamps_pred, y=X_data_pred[:, s], name=f"UKF {label} pred", mode="markers"))
 
         if mahal is not None:
             fig.add_trace(go.Scatter(x=timestamps, y=mahal, name="Mahalanobis Distance"))
@@ -132,7 +136,7 @@ class Plotter:
                 new_fig.add_trace(go.Scatter(x=self.csv_time.get(s, []), y=self.csv_data.get(s, []), name=f"CSV {label}"))
                 new_fig.add_trace(go.Scatter(x=timestamps, y=X_data[:, s] if len(X_data) else [], name=f"UKF {label}"))
                 if X_data_pred is not None:
-                    new_fig.add_trace(go.Scatter(x=timestamps, y=X_data_pred[:, s], name=f"UKF {label} pred", mode="markers"))
+                    new_fig.add_trace(go.Scatter(x=timestamps_pred, y=X_data_pred[:, s], name=f"UKF {label} pred", mode="markers"))
 
             if mahal is not None and "mahal" in toggles:
                 new_fig.add_trace(go.Scatter(x=timestamps, y=mahal, name="Mahalanobis Distance"))

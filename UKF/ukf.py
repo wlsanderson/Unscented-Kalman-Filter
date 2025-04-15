@@ -56,6 +56,7 @@ class UKF:
     def predict(self, dt):
         if (dt < 1e-12):
             raise ValueError("dt must be positive and non-zero")
+        self.X[self._quat_idx] /= np.linalg.norm(self.X[self._quat_idx])
         self.compute_process_sigmas(dt, self.Q(dt))
         self.X, self.P = self._unscented_transform_F(
             sigmas = self._sigmas_f,
@@ -80,7 +81,7 @@ class UKF:
         P_cross_covariance = self._calculate_cross_cov(self.X, pred_z)
 
         kalman_gain = np.dot(P_cross_covariance, innovation_cov_inv)
-        kalman_gain[self._rotvec_idx, 1:4] = 0.0
+        #kalman_gain[self._rotvec_idx, 1:4] = 0.0
         residual = np.subtract(z, pred_z)
 
         self.mahalanobis_dist = residual.T @ innovation_cov_inv @ residual
@@ -88,9 +89,10 @@ class UKF:
 
         delta_x =  np.dot(kalman_gain, residual)
         quat = quaternion.from_float_array(self.X[self._quat_idx])
+
         delta_q = quaternion.from_rotation_vector(delta_x[self._rotvec_idx])
         self.X[self._vec_idx] += delta_x[self._vec_idx]
-        self.X[self._quat_idx] = quaternion.as_float_array(delta_q * quat)
+        self.X[self._quat_idx] = quaternion.as_float_array((delta_q * quat).normalized())
         self.P = self.P - np.dot(kalman_gain, np.dot(innovation_cov, kalman_gain.T))
         self.P = 0.5 * (self.P + self.P.T)  # enforce symmetry
         eigvals, eigvecs = np.linalg.eigh(self.P)
@@ -101,6 +103,7 @@ class UKF:
         # splitting sigma points up into vector states and quaternion states
         vector_sigmas = sigmas[:, self._vec_idx]
         quat_sigmas = quaternion.from_float_array(sigmas[:, self._quat_idx])
+        
         quat_state = quaternion.from_float_array(X[self._quat_idx])
         # small delta quaternions are made by multiplying the quaternion sigmas by the
         # inverse of the current quaternion state
@@ -114,7 +117,8 @@ class UKF:
         # mean delta rotation vector is transformed back into a mean delta quaternion and
         # multiplied into the state to get the quaternion prediction
         mean_delta_quat = quaternion.from_rotation_vector(mean_delta_rotvec)
-        mean_quat = quaternion.as_float_array(mean_delta_quat * quat_state)
+        mean_quat = quaternion.as_float_array((mean_delta_quat * quat_state).normalized())
+        
         # the vector portion of the sigma points are calculated normally
         vector_mean = np.dot(Wm, vector_sigmas)
         x_mean = np.concatenate([vector_mean, mean_quat])

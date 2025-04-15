@@ -14,10 +14,10 @@ def compute_pitch(X_data):
     return pitch * (180/np.pi)
 
 def run():
-    launch_log = Path("launch_data/pelicanator_launch_2.csv")
+    launch_log = Path("launch_data/pel2_alt.csv")
 
     min_r = 5005
-    max_r = 9500
+    max_r = 12000
 
 
     plotter = Plotter(file_path=launch_log, min_r=min_r, max_r=max_r)

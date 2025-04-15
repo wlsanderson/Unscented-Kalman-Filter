@@ -11,9 +11,9 @@ def measurement_function(sigmas, init_alt, adjust_gyro_w_acc: bool = False):
     quat_sigmas /= np.linalg.norm(quat_sigmas)
     gyro_sigmas = sigmas[n-7:n-4]
     global_acc = np.array([sigmas[2], sigmas[3], sigmas[4]])
-    global_acc = q.from_float_array(np.concatenate([[0],global_acc / GRAVITY]))
+    global_acc = q.from_vector_part(global_acc / GRAVITY)
     quat = q.from_float_array(quat_sigmas)
-    acc = quat * global_acc * quat.conjugate()
+    acc = quat.conjugate() * global_acc * quat
     alt = sigmas[0] + init_alt
     gyro = gyro_sigmas
 
@@ -30,8 +30,8 @@ def state_transition_function(sigmas, dt, drag_option: bool = False) -> npt.NDAr
 
     delta_theta = sigmas[n-7:n-4] * dt
 
-    # delta_theta[0] = delta_theta[0]*np.cos(-delta_theta[2])-delta_theta[1]*np.sin(-delta_theta[2])
-    # delta_theta[1] = delta_theta[0]*np.sin(-delta_theta[2])+delta_theta[1]*np.cos(-delta_theta[2])
+    #delta_theta[0] = delta_theta[0]*np.cos(-delta_theta[2])-delta_theta[1]*np.sin(-delta_theta[2])
+    #delta_theta[1] = delta_theta[0]*np.sin(-delta_theta[2])+delta_theta[1]*np.cos(-delta_theta[2])
 
     quat = q.from_float_array(sigmas[n-4:n])
     q_next = quat * q.from_rotation_vector(delta_theta)

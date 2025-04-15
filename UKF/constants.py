@@ -6,6 +6,8 @@ from enum import Enum
 STATE_DIM = 12
 """Altitude, Vertical Velocity, accel x, accel y, accel z, Gyro X, Gyro Y, Gyro Z, qw, qx, qy, qz"""
 INITIAL_STATE_ESTIMATE = np.array([0.1, 0.1, 0.1, 0.1, -9.8, 0.0, 0.0, 0.0, 0.4686, 0, -0.01765, -0.88337])
+INITIAL_STATE_ESTIMATE = np.array([0.1, 0.1, 0.1, 0.1, -9.8, 0.0, 0.0, 0.0, 0.54094702,0.64727819,0.30107623,-0.44470266])
+
 
 class States(Enum):
     """Represents the state names and associated index of state vector"""
@@ -54,8 +56,8 @@ MEASUREMENT_FIELDS = [
 class StateProcessCovariance(Enum):
     """Enum that represents process variance scalars on kinematic and gyro covariances"""
     # acc x, acc y, acc z, gyro x, gyro y, gyro z
-    STANDBY = ([1e-4, 1e-4, 1e-4, 1e-4, 5e-5, 2e-5],)
-    MOTOR_BURN= ([1e2, 1e2, 1e2, 1e2, 1e2, 1e2],)
+    STANDBY = ([1e-5, 1e-5, 1e-5, 1e-4, 1e-4, 1e-4],)
+    MOTOR_BURN= ([1e2, 1e2, 1e2, 1, 1, 1],)
     COAST = ([1e-4, 1e-4, 1e-4, 1, 1, 1],)
     FREEFALL = ([10, 10, 10, 1e6, 1e6, 1e6],)
     LANDED = ([1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6],)
@@ -69,7 +71,7 @@ class StateProcessCovariance(Enum):
 class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
 
-    STANDBY = ([1, 4e-4, 4e-4, 3e-5, 2e-4, 2e-4, 1e-3],)
+    STANDBY = ([1, 5e-3, 5e-3, 5e-3, 2e-4, 2e-4, 2e-4],)
     MOTOR_BURN = ([1e-1, 1e-3, 1e-3, 1e-3, 3e-4, 3e-4, 1e-3],)
     COAST = ([0.04, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4],)
     FREEFALL = ([0.04, 1e-2, 1e-2, 1e-2, 1e2, 1e2, 1e2],)
@@ -97,7 +99,7 @@ class MagneticField(Enum):
 # Sigma Point Constants
 ALPHA = 0.3
 BETA = 2
-KAPPA = 3-STATE_DIM
+KAPPA = 0
 
 # State changes
 TAKEOFF_ACCELERATION_GS = 2

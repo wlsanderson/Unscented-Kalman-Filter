@@ -66,7 +66,7 @@ class SigmaPoints:
             sigmas[i+1][self._vec_idx] = np.subtract(X[self._vec_idx], -scaled_cholesky_sqrt[i][self._vec_idx])
             sigmas[self._n+i+1][self._vec_idx] = np.subtract(X[self._vec_idx], scaled_cholesky_sqrt[i][self._vec_idx])
 
-            rotvec_sqrt = scaled_cholesky_sqrt[i][6:9]
+            rotvec_sqrt = scaled_cholesky_sqrt[i][self._rotvec_idx]
             quat_sigma = quaternion.from_rotation_vector(rotvec_sqrt).normalized()
             quat_X = quaternion.from_float_array(X[self._quat_idx]).normalized()
             sigmas[i+1][self._quat_idx] = quaternion.as_float_array(quat_X * quat_sigma)

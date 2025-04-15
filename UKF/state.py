@@ -8,11 +8,10 @@ import scipy
 import scipy.linalg
 
 from UKF.constants import (
-    GROUND_ALTITUDE_METERS,
-    LANDED_ACCELERATION_GS,
-    MAX_ALTITUDE_THRESHOLD,
-    MAX_VELOCITY_THRESHOLD,
-    TAKEOFF_ACCELERATION_GS,
+    MB_TIME,
+    C_TIME,
+    FF_TIME,
+    L_TIME,
     StateProcessCovariance,
     StateMeasurementNoise,
 )
@@ -46,7 +45,6 @@ class State(ABC):
         self.context.ukf.F = self.state_transition_function
         self.context.ukf.Q = self.process_covariance_function
         self.context.ukf.H = self.measurement_function
-        
 
         # standby state init will add to this, but first state change timestamp is removed before plotting
         self.context.set_state_time() 
@@ -91,10 +89,9 @@ class State(ABC):
         Process noise covariance matrix
         """
         qvar = self.qvar * dt
-        kinematic_q = np.diag([0, 0, qvar[0], qvar[1], qvar[2]])
-        gyro_q = np.diag([qvar[3],qvar[4],qvar[5]])
+        gyro_q = np.diag([qvar[0],qvar[1],qvar[2]])
         quat_q = np.diag([0, 0, 0])
-        return scipy.linalg.block_diag(kinematic_q, gyro_q, quat_q)
+        return scipy.linalg.block_diag(gyro_q, quat_q)
 
 
 class StandbyState(State):
@@ -112,14 +109,13 @@ class StandbyState(State):
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
         return StateMeasurementNoise.STANDBY.matrix
 
-
     def update(self):
         """
         Checks if the rocket has launched, based on our velocity.
         """
 
         # If the velocity of the rocket is above a threshold, the rocket has launched.
-        if self.context.measurement[4] < -TAKEOFF_ACCELERATION_GS:
+        if self.context.measurement[0] > MB_TIME:
             self.next_state()
             return
 
@@ -128,10 +124,10 @@ class StandbyState(State):
         self.context._flight_state = MotorBurnState(self.context)
 
     def state_transition_function(self, sigma_points, dt):
-        return state_transition_function(sigma_points, dt, False)
+        return state_transition_function(sigma_points, dt)
     
-    def measurement_function(self, sigmas, init_alt):
-        return measurement_function(sigmas, init_alt)    
+    def measurement_function(self, sigmas):
+        return measurement_function(sigmas)    
 
 
 
@@ -164,9 +160,7 @@ class MotorBurnState(State):
         # accelerating. This is the same thing as checking if our accel sign has flipped
         # We make sure that it is not just a temporary fluctuation by checking if the velocity is a
         # bit less than the max velocity
-        if (self.context.ukf.X[1] < self.context._max_velocity * MAX_VELOCITY_THRESHOLD) and (
-            self.context._max_velocity > 2000
-        ):
+        if self.context.measurement[0] > C_TIME:
             self.next_state()
             return
 
@@ -175,9 +169,9 @@ class MotorBurnState(State):
         self.context._flight_state = CoastState(self.context)
 
     def state_transition_function(self, sigma_points, dt):
-        return state_transition_function(sigma_points, dt, False)
-    def measurement_function(self, sigmas, init_alt):
-        return measurement_function(sigmas, init_alt)    
+        return state_transition_function(sigma_points, dt)
+    def measurement_function(self, sigmas):
+        return measurement_function(sigmas)    
 
 
 class CoastState(State):
@@ -203,10 +197,7 @@ class CoastState(State):
 
         # If our velocity is less than 0 and our altitude is less than 96% of our max altitude, we
         # are in free fall.
-        if (
-            self.context.ukf.X[1] <= 0
-            and self.context.ukf.X[0] <= self.context._max_altitude * MAX_ALTITUDE_THRESHOLD
-        ):
+        if self.context.measurement[0] > FF_TIME:
             self.next_state()
             return
 
@@ -215,9 +206,9 @@ class CoastState(State):
         self.context._flight_state = FreeFallState(self.context)
 
     def state_transition_function(self, sigma_points, dt):
-        return state_transition_function(sigma_points, dt, True)
-    def measurement_function(self, sigmas, init_alt):
-        return measurement_function(sigmas, init_alt)    
+        return state_transition_function(sigma_points, dt)
+    def measurement_function(self, sigmas):
+        return measurement_function(sigmas)    
 
 
 class FreeFallState(State):
@@ -244,10 +235,7 @@ class FreeFallState(State):
 
 
         # If our altitude is around 0, and we have an acceleration spike, we have landed
-        if (
-            self.context.ukf.X[0] <= GROUND_ALTITUDE_METERS
-            and -self.context.measurement[4] >= LANDED_ACCELERATION_GS
-        ):
+        if self.context.measurement[0] > L_TIME:
             self.next_state()
 
 
@@ -256,9 +244,9 @@ class FreeFallState(State):
         self.context._flight_state = LandedState(self.context)
 
     def state_transition_function(self, sigma_points, dt):
-        return state_transition_function(sigma_points, dt, False)
-    def measurement_function(self, sigmas, init_alt):
-        return measurement_function(sigmas, init_alt)    
+        return state_transition_function(sigma_points, dt)
+    def measurement_function(self, sigmas):
+        return measurement_function(sigmas)    
 
 
 class LandedState(State):
@@ -288,6 +276,6 @@ class LandedState(State):
         pass
 
     def state_transition_function(self, sigma_points, dt):
-        return state_transition_function(sigma_points, dt, False)
-    def measurement_function(self, sigmas, init_alt):
-        return measurement_function(sigmas, init_alt)    
+        return state_transition_function(sigma_points, dt)
+    def measurement_function(self, sigmas):
+        return measurement_function(sigmas)    

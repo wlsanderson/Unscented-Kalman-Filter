@@ -65,10 +65,10 @@ class UKF:
             X = self.X,
         )
 
-    def update(self, z, init_alt):
+    def update(self, z):
         sigmas_h = []
         for s in self._sigmas_f:
-            sigmas_h.append(self.H(s, init_alt))
+            sigmas_h.append(self.H(s))
         self._sigmas_h = np.atleast_2d(sigmas_h)
         pred_z, innovation_cov = self._unscented_transform_H(
             self._sigmas_h,

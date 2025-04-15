@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Dash, dcc, html, Output, Input
 from pathlib import Path
-from UKF.constants import TIMESTAMP_COL_NAME, GRAVITY, LOG_HEADER_STATES, TIMESTAMP_UNITS, MEASUREMENT_FIELDS
+from UKF.constants import TIMESTAMP_COL_NAME, LOG_HEADER_STATES, TIMESTAMP_UNITS, MEASUREMENT_FIELDS
 
 class Plotter:
     __slots__ = (
@@ -45,16 +45,13 @@ class Plotter:
                 raise ValueError(f"Missing column '{col_name}' in CSV for state index {i}.")
             meas_col = df[col_name]
             time_col = df[TIMESTAMP_COL_NAME]
-            if i in range(2, 5):
-                meas_col *= GRAVITY
             mask = meas_col.notna()
             meas_array = meas_col[mask].to_numpy(dtype=np.float64)
             time_array = time_col[mask].to_numpy(dtype=np.float64)
             time_array = (time_array - time_array[0]) / TIMESTAMP_UNITS
             self.csv_data[i] = meas_array
             self.csv_time[i] = time_array
-        # subtract altitude data by first alt data point
-        self.csv_data[0] -= self.csv_data[0][0]
+
     def start_plot(self):
         timestamps = np.array(self.timestamps, dtype=np.float64)
         timestamps_pred = np.array(self.timestamps_pred, dtype=np.float64)

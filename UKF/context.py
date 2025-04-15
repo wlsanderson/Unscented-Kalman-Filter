@@ -19,9 +19,6 @@ class Context:
         "_last",
         "_flight_state",
         "_dt",
-        "_initial_altitude",
-        "_max_altitude",
-        "_max_velocity",
         "measurement",
     )
 
@@ -45,9 +42,7 @@ class Context:
         self._flight_state: State = StandbyState(self)
         self.shutdown_requested: bool = False
         self._dt: np.float64 = 0.0
-        self._initial_altitude: np.float64 = self._last[1]
-        self._max_velocity = 0.0
-        self._max_altitude = 0.0
+
 
         self.initialize_filter_settings()
         
@@ -99,15 +94,13 @@ class Context:
             self._plotter.timestamps_pred.append(data[0])
             self._plotter.X_data_pred.append(self.ukf.X.copy())
 
-        self.ukf.update(data[1:], self._initial_altitude)
+        self.ukf.update(data[1:])
         if self._plotter:
             self._plotter.X_data.append(self.ukf.X)
             self._plotter.timestamps.append(data[0])
             self._plotter.mahal.append(self.ukf.mahalanobis_dist)
             self._plotter.z_error_score.append(self.ukf.z_error_score)
 
-        self._max_altitude = max(self._max_altitude, self.ukf.X[0])
-        self._max_velocity = max(self._max_velocity, self.ukf.X[1])
         self._flight_state.update()
             
     def set_ukf_functions(self): 

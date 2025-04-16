@@ -5,7 +5,6 @@ import quaternion as q
 
 def measurement_function(sigmas, init_alt, adjust_gyro_w_acc: bool = False):
     n = len(sigmas)
-    # quat_sigmas = np.array([0.4686, 0, -0.01765, -0.88337])
     quat_sigmas = sigmas[n-4:n]
 
     quat_sigmas /= np.linalg.norm(quat_sigmas)

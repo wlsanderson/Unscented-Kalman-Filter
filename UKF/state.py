@@ -118,10 +118,6 @@ class StandbyState(State):
         Checks if the rocket has launched, based on our velocity.
         """
 
-        # If the velocity of the rocket is above a threshold, the rocket has launched.
-        if self.context.measurement[4] < -TAKEOFF_ACCELERATION_GS:
-            self.next_state()
-            return
 
     def next_state(self):
         print("standby -> motor burn")

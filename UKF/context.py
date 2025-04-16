@@ -26,6 +26,7 @@ class Context:
     )
 
     def __init__(self, data_processor: DataProcessor, plotter: Plotter | None = None):
+        self._last: npt.NDArray[np.float64] = data_processor.get_initial_vals()
         sigma_points = SigmaPoints(
             # despite the state vector being 10 dimensions, the variance matrices live in 9D
             # due to quaternion noise being represented as a 3x3 matrix, not 4x4.
@@ -41,7 +42,7 @@ class Context:
         )
         self.data_processor: DataProcessor = data_processor
         self._plotter: Plotter = plotter
-        self._last: npt.NDArray[np.float64] = data_processor.get_initial_vals()
+        
         self._flight_state: State = StandbyState(self)
         self.shutdown_requested: bool = False
         self._dt: np.float64 = 0.0
@@ -52,7 +53,9 @@ class Context:
         self.initialize_filter_settings()
         
     def initialize_filter_settings(self):
-        self.ukf.X = INITIAL_STATE_ESTIMATE.copy()
+        state_estimate = INITIAL_STATE_ESTIMATE.copy()
+        state_estimate[1:4] = self._last[2:5]
+        self.ukf.X = state_estimate
         self.ukf.P = INITIAL_STATE_COV.copy()
         self.ukf.H = measurement_function
 

@@ -16,8 +16,8 @@ def compute_pitch(X_data):
 def run():
     launch_log = Path("launch_data/test_standby_alt.csv")
 
-    min_r = 2000
-    max_r = 40000
+    min_r = 2
+    max_r = 100000
 
 
     plotter = Plotter(file_path=launch_log, min_r=min_r, max_r=max_r)

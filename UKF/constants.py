@@ -5,7 +5,7 @@ from enum import Enum
 # state vector constants
 STATE_DIM = 12
 """Altitude, Vertical Velocity, accel x, accel y, accel z, Gyro X, Gyro Y, Gyro Z, qw, qx, qy, qz"""
-INITIAL_STATE_ESTIMATE = np.array([0, 0, 0, 0, -9.81, 0.0, 0.0, 0.0, 0.6436035, 0.68179065, 0.01206461, 0.3475495])
+INITIAL_STATE_ESTIMATE = np.array([0, 0, 0, 0, -9.798, 0.0, 0.0, 0.0, 0.6436035, 0.68179065, 0.01206461, 0.3475495])
 
 
 class States(Enum):
@@ -25,7 +25,7 @@ class States(Enum):
 
 
 # initial state covariance
-INITIAL_STATE_COV = np.diag([1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 0.1, 0.1, 0.1, 0.1])
+INITIAL_STATE_COV = np.diag([1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 0.1, 0.1, 0.1])
 
 # measurement vector constants
 MEASUREMENT_DIM = 7
@@ -49,17 +49,16 @@ MEASUREMENT_FIELDS = [
 #     "magneticFieldX",
 #     "magneticFieldY",
 #     "magneticFieldZ",
-
 #     ]
 
 class StateProcessCovariance(Enum):
     """Enum that represents process variance scalars on kinematic and gyro covariances"""
-    # acc x, acc y, acc z, gyro x, gyro y, gyro z
-    STANDBY = ([1e-1, 1e-1, 1e-2, 1e-4, 1e-4, 1e-5],)
-    MOTOR_BURN= ([1e2, 1e2, 1e2, 1, 1, 1],)
-    COAST = ([1e-4, 1e-4, 1e-4, 1, 1, 1],)
-    FREEFALL = ([10, 10, 10, 1e6, 1e6, 1e6],)
-    LANDED = ([1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6],)
+    # alt, vel, acc x, acc y, acc z, gyro x, gyro y, gyro z, orientation x, orientation y, orientation z
+    STANDBY = ([0, 0, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 0, 0, 0],)
+    MOTOR_BURN= ([1e2, 1e2, 1e2, 1, 1, 1, 1, 1, 1],)
+    COAST = ([1e-4, 1e-4, 1e-4, 1, 1, 1, 1 ,1, 1],)
+    FREEFALL = ([10, 10, 10, 1e6, 1e6, 1e6, 1, 1 ,1],)
+    LANDED = ([1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1e-6, 1, 1 ,1],)
 
     @property
     def array(self) -> npt.NDArray:
@@ -69,8 +68,8 @@ class StateProcessCovariance(Enum):
 
 class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
-
-    STANDBY = ([1, 1, 1, 1e-2, 1e-4, 1e-4, 1e-4],)
+    # alt, acc x, acc y, acc z, gyro x, gyro y, gyro z
+    STANDBY = ([1, 1e-5, 1e-5, 1e-5, 2e-3, 2e-3, 2e-3],)
     MOTOR_BURN = ([1e-1, 1e-3, 1e-3, 1e-3, 3e-4, 3e-4, 1e-3],)
     COAST = ([0.04, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4],)
     FREEFALL = ([0.04, 1e-2, 1e-2, 1e-2, 1e2, 1e2, 1e2],)
@@ -96,7 +95,7 @@ class MagneticField(Enum):
 
 
 # Sigma Point Constants
-ALPHA = 0.3
+ALPHA = 1
 BETA = 2
 KAPPA = 0
 

@@ -12,7 +12,6 @@ from UKF.constants import (
     LANDED_ACCELERATION_GS,
     MAX_ALTITUDE_THRESHOLD,
     MAX_VELOCITY_THRESHOLD,
-    TAKEOFF_ACCELERATION_GS,
     StateProcessCovariance,
     StateMeasurementNoise,
 )
@@ -75,7 +74,7 @@ class State(ABC):
         """
 
     @abstractmethod
-    def state_transition_function(self, sigma_points, dt):
+    def state_transition_function(self, sigma_points, dt, X):
         """
         State transition function for Unscented Kalman Filter
         """
@@ -91,9 +90,9 @@ class State(ABC):
         Process noise covariance matrix
         """
         qvar = self.qvar * dt
-        kinematic_q = np.diag([0, 0, qvar[0], qvar[1], qvar[2]])
-        gyro_q = np.diag([qvar[3],qvar[4],qvar[5]])
-        quat_q = np.diag([0, 0, 0])
+        kinematic_q = np.diag([qvar[0], qvar[1], qvar[2], qvar[3], qvar[4]])
+        gyro_q = np.diag([qvar[5],qvar[6],qvar[7]])
+        quat_q = np.diag([qvar[8], qvar[9], qvar[10]])
         return scipy.linalg.block_diag(kinematic_q, gyro_q, quat_q)
 
 
@@ -123,8 +122,8 @@ class StandbyState(State):
         print("standby -> motor burn")
         self.context._flight_state = MotorBurnState(self.context)
 
-    def state_transition_function(self, sigma_points, dt):
-        return state_transition_function(sigma_points, dt, False)
+    def state_transition_function(self, sigma_points, dt, X):
+        return state_transition_function(sigma_points, dt, X, False)
     
     def measurement_function(self, sigmas, init_alt):
         return measurement_function(sigmas, init_alt)    
@@ -170,8 +169,8 @@ class MotorBurnState(State):
         print("motor burn -> coast")
         self.context._flight_state = CoastState(self.context)
 
-    def state_transition_function(self, sigma_points, dt):
-        return state_transition_function(sigma_points, dt, False)
+    def state_transition_function(self, sigma_points, dt, X):
+        return state_transition_function(sigma_points, dt, X, False)
     def measurement_function(self, sigmas, init_alt):
         return measurement_function(sigmas, init_alt)    
 
@@ -210,8 +209,8 @@ class CoastState(State):
         print("coast -> freefall")
         self.context._flight_state = FreeFallState(self.context)
 
-    def state_transition_function(self, sigma_points, dt):
-        return state_transition_function(sigma_points, dt, True)
+    def state_transition_function(self, sigma_points, dt, X):
+        return state_transition_function(sigma_points, dt, X, True)
     def measurement_function(self, sigmas, init_alt):
         return measurement_function(sigmas, init_alt)    
 
@@ -251,8 +250,8 @@ class FreeFallState(State):
         print("freefall -> landed")
         self.context._flight_state = LandedState(self.context)
 
-    def state_transition_function(self, sigma_points, dt):
-        return state_transition_function(sigma_points, dt, False)
+    def state_transition_function(self, sigma_points, dt, X):
+        return state_transition_function(sigma_points, dt, X, False)
     def measurement_function(self, sigmas, init_alt):
         return measurement_function(sigmas, init_alt)    
 
@@ -283,7 +282,7 @@ class LandedState(State):
         # Explicitly do nothing, there is no next state
         pass
 
-    def state_transition_function(self, sigma_points, dt):
-        return state_transition_function(sigma_points, dt, False)
+    def state_transition_function(self, sigma_points, dt, X):
+        return state_transition_function(sigma_points, dt, X, False)
     def measurement_function(self, sigmas, init_alt):
         return measurement_function(sigmas, init_alt)    

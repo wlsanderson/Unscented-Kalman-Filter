@@ -118,14 +118,15 @@ class UKF:
         # multiplied into the state to get the quaternion prediction
         mean_delta_quat = quaternion.from_rotation_vector(mean_delta_rotvec)
         mean_quat = quaternion.as_float_array((mean_delta_quat * quat_state).normalized())
-        
         # the vector portion of the sigma points are calculated normally
         vector_mean = np.dot(Wm, vector_sigmas)
+
         x_mean = np.concatenate([vector_mean, mean_quat])
 
         vec_residual = vector_sigmas - vector_mean[np.newaxis, :]
         full_residuals = np.hstack((vec_residual, delta_rotvecs))
         P_covariance = (full_residuals.T * Wc) @  full_residuals
+
         return (x_mean, P_covariance)
     
     @staticmethod
@@ -142,7 +143,7 @@ class UKF:
     def compute_process_sigmas(self, dt, Q):
         sigmas = self._sigma_points_class.calculate_sigma_points(self.X, self.P, Q)
         for i, s in enumerate(sigmas):
-            self._sigmas_f[i] = self.F(s, dt)
+            self._sigmas_f[i] = self.F(s, dt, self.X)
 
     def _calculate_cross_cov(self, x, z):
         P_cross_cov = np.zeros((self._sigmas_f.shape[1] - 1, self._sigmas_h.shape[1]))

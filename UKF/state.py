@@ -36,7 +36,10 @@ class State(ABC):
     5. Landed - when the rocket lands on the ground.
     """
 
-    __slots__ = ("context")
+    __slots__ = (
+        "context",
+        "transient_time",
+    )
 
     def __init__(self, context: "Context"):
         """
@@ -47,9 +50,11 @@ class State(ABC):
         self.context.ukf.Q = self.process_covariance_function
         self.context.ukf.H = self.measurement_function
         
-
         # standby state init will add to this, but first state change timestamp is removed before plotting
         self.context.set_state_time() 
+
+        self.transient_time = 0.5
+
 
     @property
     @abstractmethod
@@ -81,7 +86,7 @@ class State(ABC):
         """
 
     @abstractmethod
-    def measurement_function(self, sigmas):
+    def measurement_function(self, sigmas, init_alt, X):
         """
         Measurement function for Unscented Kalman Filter
         """
@@ -91,6 +96,10 @@ class State(ABC):
         Process noise covariance matrix
         """
         qvar = self.qvar * dt
+        if self.transient_time > 0:
+            scalar = max(100 * self.transient_time, 1)
+            qvar *= scalar
+            self.transient_time -= dt
         kinematic_q = np.diag([0, 0, qvar[0], qvar[1], qvar[2]])
         gyro_q = np.diag([qvar[3],qvar[4],qvar[5]])
         quat_q = np.diag([0, 0, 0])
@@ -130,8 +139,8 @@ class StandbyState(State):
     def state_transition_function(self, sigma_points, dt):
         return state_transition_function(sigma_points, dt, False)
     
-    def measurement_function(self, sigmas, init_alt):
-        return measurement_function(sigmas, init_alt)    
+    def measurement_function(self, sigmas, init_alt, X):
+        return measurement_function(sigmas, init_alt, X)    
 
 
 
@@ -165,7 +174,7 @@ class MotorBurnState(State):
         # We make sure that it is not just a temporary fluctuation by checking if the velocity is a
         # bit less than the max velocity
         if (self.context.ukf.X[1] < self.context._max_velocity * MAX_VELOCITY_THRESHOLD) and (
-            self.context._max_velocity > 2000
+            self.context._max_velocity > 20
         ):
             self.next_state()
             return
@@ -176,8 +185,8 @@ class MotorBurnState(State):
 
     def state_transition_function(self, sigma_points, dt):
         return state_transition_function(sigma_points, dt, False)
-    def measurement_function(self, sigmas, init_alt):
-        return measurement_function(sigmas, init_alt)    
+    def measurement_function(self, sigmas, init_alt, X):
+        return measurement_function(sigmas, init_alt, X)    
 
 
 class CoastState(State):
@@ -185,18 +194,31 @@ class CoastState(State):
     When the motor has burned out and the rocket is coasting to apogee.
     """
 
-    __slots__ = ()
+    __slots__ = (
+        "uncertain_time",
+    )
 
     @property
     def qvar(self) -> np.float64:
-        return StateProcessCovariance.COAST.array
+        qvar = StateProcessCovariance.COAST.array
+        if self.uncertain_time:
+            qvar[0:3] *= 10
+        return qvar
     
     @property
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
-        return StateMeasurementNoise.COAST.matrix
+        r =  StateMeasurementNoise.COAST.matrix
+        if self.uncertain_time <= 0 and self.context.ukf.z_error_score[0] > 75:
+            self.uncertain_time = 0.3
+        if self.uncertain_time > 0:
+            r[0] *= 10
+            self.uncertain_time -= self.context._dt
+        return r
+
     
     def __init__(self, context: "Context"):
         super().__init__(context)
+        self.uncertain_time = 0
 
     def update(self):
         """Checks to see if the rocket has reached apogee, indicating the start of free fall."""
@@ -215,9 +237,9 @@ class CoastState(State):
         self.context._flight_state = FreeFallState(self.context)
 
     def state_transition_function(self, sigma_points, dt):
-        return state_transition_function(sigma_points, dt, True)
-    def measurement_function(self, sigmas, init_alt):
-        return measurement_function(sigmas, init_alt)    
+        return state_transition_function(sigma_points, dt, False)
+    def measurement_function(self, sigmas, init_alt, X):
+        return measurement_function(sigmas, init_alt, X)    
 
 
 class FreeFallState(State):
@@ -257,8 +279,8 @@ class FreeFallState(State):
 
     def state_transition_function(self, sigma_points, dt):
         return state_transition_function(sigma_points, dt, False)
-    def measurement_function(self, sigmas, init_alt):
-        return measurement_function(sigmas, init_alt)    
+    def measurement_function(self, sigmas, init_alt, X):
+        return measurement_function(sigmas, init_alt, X)    
 
 
 class LandedState(State):
@@ -289,5 +311,5 @@ class LandedState(State):
 
     def state_transition_function(self, sigma_points, dt):
         return state_transition_function(sigma_points, dt, False)
-    def measurement_function(self, sigmas, init_alt):
-        return measurement_function(sigmas, init_alt)    
+    def measurement_function(self, sigmas, init_alt, X):
+        return measurement_function(sigmas, init_alt, X)    

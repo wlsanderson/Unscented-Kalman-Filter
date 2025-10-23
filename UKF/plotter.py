@@ -1,152 +1,158 @@
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.io as pio
+from dash import Dash, dcc, html, Output, Input
 from pathlib import Path
-from UKF.constants import TIMESTAMP_COL_NAME, GRAVITY, LOG_HEADER_STATES
+from UKF.constants import TIMESTAMP_COL_NAME, GRAVITY, LOG_HEADER_STATES, TIMESTAMP_UNITS, MEASUREMENT_FIELDS
 
 class Plotter:
     __slots__ = (
-        "state_indices",
         "X_data",
-        "P_data",
+        "X_data_pred",
+        "mahal",
         "timestamps",
+        "timestamps_pred",
         "csv_data",
         "csv_time",
         "state_times",
+        "z_error_score",
     )
 
-    def __init__(self, state_index: int | list, file_path: Path = None, min_r = None, max_r = None):
-        """
-        Plots the state variables from the UKF data and csv data if provided.
+    def __init__(self, file_path: Path, min_r=None, max_r=None):
 
-        :param state_index: index of state vector to plot, or list of 1 or 2 state vectors to plot
-        :param file_path: Path of csv file to plot, ideally matching the csv used for UKF data
-        :param min_r: the first row to start at in csv
-        :param mar_r: last row to end at in csv
-        """
-        pio.renderers.default = "browser"
+        self.mahal = []
+        self.z_error_score = []
+        self.X_data = []
+        self.X_data_pred = []
+        self.timestamps_pred = []
+        self.timestamps = []
+        self.state_times = []
+        self.csv_data = {}
+        self.csv_time = {}
 
-        if isinstance(state_index, int):
-            self.state_indices = [state_index]
-        elif isinstance(state_index, list) and (len(state_index) in [1,2]):
-            self.state_indices = state_index
-        else:
-            raise ValueError("state_index must be an int or a list of 1 or 2 ints.")
+        df = pd.read_csv(file_path)
+        # limit data to only what was specified
+        if max_r is not None:
+            df = df.loc[:max_r]
+        if min_r is not None:
+            df = df.loc[min_r:]
 
-        self.X_data: list = []
-        self.P_data: list = []
-        self.timestamps: list = [] # nanoseconds
-        self.state_times: list = [] # nanoseconds
-
-        # Initialize CSV data and timestamp dicts
-        self.csv_data: dict = {}
-        self.csv_time: dict = {}
-
-        # If a CSV file path is provided, load and process the data.
-        if file_path:
-            headers = [TIMESTAMP_COL_NAME]
-            for s in self.state_indices:
-                if s in LOG_HEADER_STATES:
-                    headers.append(LOG_HEADER_STATES[s])
-                else:
-                    raise ValueError(f"Unsupported state index {s} for CSV reading.")
-
-            
-            # Read CSV with desired columns
-            df = pd.read_csv(file_path, usecols=headers)
-            if max_r is not None:
-                df = df.loc[:max_r]
-            if min_r is not None:
-                df = df.loc[min_r:]
-
-            for s in self.state_indices:
-                col_name = LOG_HEADER_STATES[s]
-                meas_col = df[col_name]
-            
-                if s == 2:
-                    meas_col *= -GRAVITY
-                time_col = df[TIMESTAMP_COL_NAME]
-
-                # Create a mask for rows where the measurement is not NaN
-                mask = meas_col.notna()
-                meas_array = meas_col[mask].to_numpy(dtype=np.float64)
-                time_array = time_col[mask].to_numpy(dtype=np.float64)
-                time_array = (time_array - time_array[0]) / 1e9
-                self.csv_data[s] = meas_array
-                self.csv_time[s] = time_array
-    
+        # this is assuming that the state index is in the same order as the associated
+        # log header states
+        for i in LOG_HEADER_STATES:
+            col_name = LOG_HEADER_STATES[i]
+            if col_name not in df:
+                raise ValueError(f"Missing column '{col_name}' in CSV for state index {i}.")
+            meas_col = df[col_name]
+            time_col = df[TIMESTAMP_COL_NAME]
+            if i in range(2, 5):
+                meas_col *= GRAVITY
+            mask = meas_col.notna()
+            meas_array = meas_col[mask].to_numpy(dtype=np.float64)
+            time_array = time_col[mask].to_numpy(dtype=np.float64)
+            time_array = (time_array - time_array[0]) / TIMESTAMP_UNITS
+            self.csv_data[i] = meas_array
+            self.csv_time[i] = time_array
+        # subtract altitude data by first alt data point
+        self.csv_data[0] -= self.csv_data[0][0]
     def start_plot(self):
+        timestamps = np.array(self.timestamps, dtype=np.float64)
+        timestamps_pred = np.array(self.timestamps_pred, dtype=np.float64)
+        timestamps = (timestamps - timestamps[0]) / TIMESTAMP_UNITS
+        timestamps_pred = (timestamps_pred - timestamps_pred[0]) / TIMESTAMP_UNITS
+        X_data = np.array(self.X_data, dtype=np.float64)
+        X_data_pred = np.array(self.X_data_pred, dtype=np.float64) if self.X_data_pred else None
+        mahal = np.array(self.mahal, dtype=np.float64) if self.mahal else None
+        z_error_score = np.array(self.z_error_score, dtype=np.float64) if self.z_error_score else None
+
+        app = Dash(__name__)
         fig = go.Figure()
 
-        # Plot CSV data if available
-        for i, s in enumerate(self.state_indices):
-            if s in self.csv_data and s in self.csv_time:
-                if len(self.state_indices) == 1:
-                    fig.add_trace(go.Scatter(
-                        x = self.csv_time[s],
-                        y = self.csv_data[s],
-                        mode="lines",
-                        name=f"CSV Data (col {s})"
-                    ))
-                else:
-                    yaxis_name = "y" if i == 0 else "y2"
-                    fig.add_trace(go.Scatter(
-                        x=self.csv_time[s],
-                        y=self.csv_data[s],
-                        mode="lines",
-                        name=f"CSV Data (col {s})",
-                        yaxis=yaxis_name
-                    ))
-        
-        # Plot simulated data
-        if self.X_data and self.timestamps:
-            timestamps = np.array(self.timestamps, dtype=np.float64)
-            X_data = np.array(self.X_data, dtype=np.float64)
-            timestamps = (timestamps - timestamps[0])/1e9
+        for s in LOG_HEADER_STATES:
+            label = LOG_HEADER_STATES[s]
+            fig.add_trace(go.Scatter(x=self.csv_time.get(s, []), y=self.csv_data.get(s, []), name=f"CSV {label}"))
+            fig.add_trace(go.Scatter(x=timestamps, y=X_data[:, s] if len(X_data) else [], name=f"UKF {label}"))
+            if X_data_pred is not None:
+                fig.add_trace(go.Scatter(x=timestamps_pred, y=X_data_pred[:, s], name=f"UKF {label} pred", mode="markers"))
 
-            for i, s in enumerate(self.state_indices):
-                internal_trace = X_data[:, s]
+        if mahal is not None:
+            fig.add_trace(go.Scatter(x=timestamps, y=mahal, name="Mahalanobis Distance"))
+        if z_error_score is not None:
+            for i, label in enumerate(MEASUREMENT_FIELDS):
+                fig.add_trace(go.Scatter(x=timestamps, y=z_error_score[:, i], name=f"Z Error Score: {label}"))
 
-                if len(self.state_indices) == 1:
-                    fig.add_trace(go.Scatter(
-                        x=timestamps,
-                        y=internal_trace,
-                        mode="lines",
-                        name=f"Simulated X[{s}]"
-                    ))
-                else:
-                    # if 2 indices, use 2 y axes
-                    yaxis_name = "y" if i == 0 else "y2"
-                    fig.add_trace(go.Scatter(
-                        x=timestamps,
-                        y=internal_trace,
-                        mode="lines",
-                        name=f"Simulated X[{s}]",
-                        yaxis=yaxis_name,
-                    ))
-                    
+        app.layout = html.Div([
+            html.Div([
+                dcc.Checklist(
+                    id="state_selector",
+                    options=[{"label": LOG_HEADER_STATES[s], "value": s} for s in LOG_HEADER_STATES],
+                    value=[list(LOG_HEADER_STATES.keys())[0]],
+                    labelStyle={"display": "block", "color": "white"},
+                    style={"margin-bottom": "20px"}
+                ),
+                dcc.Checklist(
+                    id="mahal_toggle",
+                    options=[{"label": "Mahalanobis Distance", "value": "mahal"}] +
+                            [{"label": f"Z Error Score: {label}", "value": f"z_{label}"} for label in MEASUREMENT_FIELDS],
+                    value=[],
+                    labelStyle={"display": "block", "color": "white"}
+                ),
+            ], style={
+                "width": "15%",
+                "height": "100vh",
+                "overflowY": "auto",
+                "padding": "10px",
+                "box-sizing": "border-box",
+                "float": "left",
+                "background-color": "#111"
+            }),
 
-        # Plot state change lines
-        if len(self.state_times) > 1:
-            st = np.array(self.state_times, dtype=np.float64)
-            st = ((st - st[0])/1e9)[1:] # converting to seconds and dropping first point (first timestamp of csv)
-            for x_coord in st:
-                fig.add_vline(x=x_coord)
+            html.Div([
+                dcc.Graph(id="ukf_plot", figure=fig, style={
+                    "height": "100vh",
+                    "width": "100%",
+                })
+            ], style={
+                "width": "85%",
+                "height": "100vh",
+                "float": "right",
+            })
+        ], style={
+            "margin": "0",
+            "padding": "0",
+            "height": "100vh",
+            "overflow": "hidden"
+        })
 
-        # setup layout with multiple y-axes if needed
-        layout = {
-            "title": "State Variable vs Time",
-            "xaxis": {"title": "Time (seconds)"},
-            "template": "plotly_dark"
-        }
-        if len(self.state_indices) == 1:
-            layout["yaxis"] = {"title": f"X[{self.state_indices[0]}]"}
-        else:
-            layout["yaxis"] = {"title": f"X[{self.state_indices[0]}]", "side": "left"}
-            layout["yaxis2"] = {"title": f"X[{self.state_indices[1]}]", "overlaying": "y", "side": "right"}
-        
-        # Update figure layout
-        fig.update_layout(**layout)
-        fig.show()
+        @app.callback(
+            Output("ukf_plot", "figure"),
+            Input("state_selector", "value"),
+            Input("mahal_toggle", "value")
+        )
+        def update_plot(selected_states, toggles):
+            new_fig = go.Figure()
+            for s in selected_states:
+                label = LOG_HEADER_STATES[s]
+                new_fig.add_trace(go.Scatter(x=self.csv_time.get(s, []), y=self.csv_data.get(s, []), name=f"CSV {label}"))
+                new_fig.add_trace(go.Scatter(x=timestamps, y=X_data[:, s] if len(X_data) else [], name=f"UKF {label}"))
+                if X_data_pred is not None:
+                    new_fig.add_trace(go.Scatter(x=timestamps_pred, y=X_data_pred[:, s], name=f"UKF {label} pred", mode="markers"))
 
+            if mahal is not None and "mahal" in toggles:
+                new_fig.add_trace(go.Scatter(x=timestamps, y=mahal, name="Mahalanobis Distance"))
+
+            if z_error_score is not None:
+                for i, label in enumerate(MEASUREMENT_FIELDS):
+                    if f"z_{label}" in toggles:
+                        new_fig.add_trace(go.Scatter(x=timestamps, y=z_error_score[:, i], name=f"Z Error Score: {label}"))
+
+            new_fig.update_layout(
+                title="UKF State Comparison (Dash)",
+                xaxis_title="Time (seconds)",
+                yaxis_title="Measurement",
+                template="plotly_dark"
+            )
+            new_fig.update_traces(marker=dict(size=3))
+            return new_fig
+
+        app.run(debug=False, use_reloader=False)

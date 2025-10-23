@@ -30,8 +30,11 @@ class DataProcessor:
             self._df = self._df.loc[:max_r]
             
         if min_r is not None:
-            self._df = self._df.loc[min_r:]
+            self._df = self._df.loc[min_r - 1:] # so the initial values will not cause the first dt to be zero
         self._iterator = self._df.itertuples(index=False, name=None)
+        # when reading rows, skip first row. This only happenes because the first row was reserved
+        # for the initial values. Initial values cant make the first dt zero.
+        next(self._iterator)
 
 
     def fetch(self):

@@ -1,6 +1,10 @@
-"""Largely copied from FilterPy's MerweScaledSigmaPoints class"""
+"""
+Based on FilterPy's MerweScaledSigmaPoints class, with changes made to support quaternions from
+Edgar Kraft's paper on quaternion UKF's.
+"""
 import numpy as np
 import numpy.typing as npt
+import quaternion
 
 class SigmaPoints:
     __slots__ = (
@@ -10,6 +14,10 @@ class SigmaPoints:
         "_kappa",
         "Wm",
         "Wc",
+        "_quat_idx",
+        "_rotvec_idx",
+        "_vec_idx",
+
     )
 
     def __init__(self, n, alpha, beta, kappa):
@@ -22,8 +30,10 @@ class SigmaPoints:
         self.Wc: npt.NDArray = None
 
         self._compute_weights()
+        self._quat_idx = slice(n - 3, n + 1)
+        self._rotvec_idx = slice(n - 3, n)
+        self._vec_idx = slice(0, n - 3)
 
-        
 
 
     def _compute_weights(self) -> None:
@@ -34,18 +44,33 @@ class SigmaPoints:
         self.Wc[0] = lambda_ / (self._n + lambda_) + (1 - self._alpha**2 + self._beta)
         self.Wm[0] = lambda_ / (self._n + lambda_)
 
-    def calculate_sigma_points(self, X, P) -> npt.NDArray:
-        if self._n != np.size(X):
-            raise ValueError("expected size(x) {}, but size is {}".format(self.n, np.size(X)))
+    def calculate_sigma_points(self, X, P, Q) -> npt.NDArray:
+        """
+        Calculates sigma points that will be evaluated in the state transition function. Process
+        noise willbe included before the state transition function. Because of this, the scaled
+        choleskly square root will be one dimension smaller than the sigma points because the noise
+        matrix for quaternions is 3 components, not 4.
+        """
         P = np.atleast_2d(P)
-        n = len(X)
-        lambda_ = self._alpha**2 * (n + self._kappa) - n
-        scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + n)*(P), upper=True)
-        sigmas = np.zeros([2 * n + 1, n])
+        Q = np.atleast_2d(Q)
+        state_dim = len(X)
+        lambda_ = self._alpha**2 * (self._n + self._kappa) - self._n
+        P = 0.5 * (P + P.T)
+
+        scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + self._n)*(P + Q), upper=True)
+        
+        sigmas = np.zeros([2 * self._n + 1, state_dim])
         sigmas[0] = X
-        for i in range(n):
-            sigmas[i+1] = np.subtract(X, -scaled_cholesky_sqrt[i])
-            sigmas[n+i+1] = np.subtract(X, scaled_cholesky_sqrt[i])
+
+        for i in range(self._n):
+            sigmas[i+1][self._vec_idx] = np.subtract(X[self._vec_idx], -scaled_cholesky_sqrt[i][self._vec_idx])
+            sigmas[self._n+i+1][self._vec_idx] = np.subtract(X[self._vec_idx], scaled_cholesky_sqrt[i][self._vec_idx])
+
+            rotvec_sqrt = scaled_cholesky_sqrt[i][self._rotvec_idx]
+            quat_sigma = quaternion.from_rotation_vector(rotvec_sqrt).normalized()
+            quat_X = quaternion.from_float_array(X[self._quat_idx]).normalized()
+            sigmas[i+1][self._quat_idx] = quaternion.as_float_array(quat_X * quat_sigma)
+            sigmas[self._n+i+1][self._quat_idx] = quaternion.as_float_array(quat_X * quat_sigma.conjugate())
         return sigmas
 
     def num_sigmas(self) -> int:

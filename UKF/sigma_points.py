@@ -53,7 +53,7 @@ class SigmaPoints:
         # According to Edgar Kraft's paper on quaternion UKF's, we need to apply the process noise
         # before generating the sigma points, as opposed to a standard UKF where the noise is added
         # after propagating the sigma points through the state transition function.
-        scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + self._n)*(P + Q), upper=True)
+        scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + self._n)*(P + Q), upper=False)
         
         # array to hold the sigma points, first row is the mean state with no perturbation applied.
         sigmas = np.zeros([self.num_sigmas(), state_dim])
@@ -62,12 +62,12 @@ class SigmaPoints:
         # generate the sigma points, the first n sigma points are X + scaled_sqrt, the next n are
         # X - scaled_sqrt.
         for i in range(self._n):
-            sigmas[i+1][self._vec_idx] = np.add(X[self._vec_idx], scaled_cholesky_sqrt[i][self._vec_idx])
-            sigmas[self._n+i+1][self._vec_idx] = np.subtract(X[self._vec_idx], scaled_cholesky_sqrt[i][self._vec_idx])
+            sigmas[i+1][self._vec_idx] = np.add(X[self._vec_idx], scaled_cholesky_sqrt[:, i][self._vec_idx])
+            sigmas[self._n+i+1][self._vec_idx] = np.subtract(X[self._vec_idx], scaled_cholesky_sqrt[:, i][self._vec_idx])
 
             # to handle the quaternion part, we convert the rotation vector to a quaternion
             # and apply it to the mean quaternion via quaternion multiplication.
-            rotvec_sqrt = scaled_cholesky_sqrt[i][self._rotvec_idx]
+            rotvec_sqrt = scaled_cholesky_sqrt[:, i][self._rotvec_idx]
             quat_sigma = quaternion.from_rotation_vector(rotvec_sqrt).normalized()
             quat_X = quaternion.from_float_array(X[self._quat_idx]).normalized()
             # instead of adding/subtracting, we multiply quaternions to "add", and multiply by

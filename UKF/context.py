@@ -28,9 +28,8 @@ class Context:
     def __init__(self, data_processor: DataProcessor, plotter: Plotter | None = None):
         self._last: npt.NDArray[np.float64] = data_processor.get_initial_vals()
         sigma_points = SigmaPoints(
-            # despite the state vector being 10 dimensions, the variance matrices live in 9D
-            # due to quaternion noise being represented as a 3x3 matrix, not 4x4.
-            n = np.size(INITIAL_STATE_COV, 0),
+            # n is the dimension of the state, minus one due to the quaternion representation
+            n = STATE_DIM - 1,
             alpha = ALPHA,
             beta = BETA,
             kappa = KAPPA,

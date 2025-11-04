@@ -2,65 +2,131 @@ import numpy as np
 import numpy.typing as npt
 from enum import Enum
 
-# state vector constants
-STATE_DIM = 12
-"""Altitude, Vertical Velocity, accel x, accel y, accel z, Gyro X, Gyro Y, Gyro Z, qw, qx, qy, qz"""
-#INITIAL_STATE_ESTIMATE = np.array([0.0, 0.0, 0.0, 0.0, -9.8, 0.0, 0.0, 0.0, 0.4686, 0, -0.01765, -0.88337])
-INITIAL_STATE_ESTIMATE = np.array([0.0, 0.0, 0.0, 0.0, -9.8, 0.0, 0.0, 0.0, 0.991991, -0.03389, 0, -0.12174])
 
+STATE_DIM = 22
+"""Number of states in the state vector"""
+
+
+INITIAL_STATE_ESTIMATE = np.array([
+    0.0, 0.0, 0.0, # position (x, y, z)
+    0.0, 0.0, 0.0, # velocity (x, y, z)
+    1.0, 0.0, 0.0, # accel (x, y, z)
+    0.0, 0.0, 0.0, # gyro (x, y, z)
+    0.0, 0.0, 0.0, # accelerometer offsets (x, y, z)
+    0.0, 0.0, 0.0, # gyro offsets (x, y, z)
+    1.0, 0.0, 0.0, 0.0, # quaternion orientation (w, x, y, z)
+    ])
+"""State vector initial estimate"""
+
+# initial state covariance
+INITIAL_STATE_COV = np.diag([
+    1e-5, 1e-3, 1e-3, # position (x, y, z)
+    1e-5, 1e-3, 1e-3, # velocity (x, y, z)
+    1e-5, 1e-3, 1e-3, # accel (x, y, z)
+    1e-3, 1e-3, 1e-3, # gyro (x, y, z)
+    1e-1, 1e-1, 1e-1, # accelerometer offsets (x, y, z)
+    1e-1, 1e-1, 1e-1, # gyro offsets (x, y, z)
+    1e1, 1e1, 1e1, # quaternion orientation (w, x, y, z)
+])
 
 class States(Enum):
     """Represents the state names and associated index of state vector"""
-    ALTITUDE = 0
-    VELOCITY = 1
-    ACCELERATION_X = 2
-    ACCELERATION_Y = 3
-    ACCELERATION_Z = 4
-    GYRO_X = 5
-    GYRO_Y = 6
-    GYRO_Z = 7
-    QUAT_W = 8
-    QUAT_X = 9
-    QUAT_Y = 10
-    QUAT_Z = 11
+    POS_X = 0
+    POS_Y = 1
+    POS_Z = 2
+    VELOCITY_X = 3
+    VELOCITY_Y = 4
+    VELOCITY_Z = 5
+    ACCEL_X = 6
+    ACCEL_Y = 7
+    ACCEL_Z = 8
+    GYRO_X = 9
+    GYRO_Y = 10
+    GYRO_Z = 11
+    ACC_OFFSET_X = 12
+    ACC_OFFSET_Y = 13
+    ACC_OFFSET_Z = 14
+    GYRO_OFFSET_X = 15
+    GYRO_OFFSET_Y = 16
+    GYRO_OFFSET_Z = 17
+    QUATERNION_W = 18
+    QUATERNION_X = 19
+    QUATERNION_Y = 20
+    QUATERNION_Z = 21
 
 
-# initial state covariance
-INITIAL_STATE_COV = np.diag([1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 0.1, 0.1, 0.1])
+
 
 # measurement vector constants
-MEASUREMENT_DIM = 7
+MEASUREMENT_DIM = 10
 MEASUREMENT_FIELDS = [
-    "alt_interp_rand",
-    "scaledAccelX",
-    "scaledAccelY",
-    "scaledAccelZ",
-    "estAngularRateX",
-    "estAngularRateY",
-    "estAngularRateZ",
+    "pressure",
+    "accel_x",
+    "accel_y",
+    "accel_z",
+    "gyro_x",
+    "gyro_y",
+    "gyro_z",
+    "mag_x",
+    "mag_y",
+    "mag_z",
     ]
-# MEASUREMENT_FIELDS = [
-#     "pressureAlt",
-#     "estCompensatedAccelX",
-#     "estCompensatedAccelY",
-#     "estCompensatedAccelZ",
-#     "estAngularRateX",
-#     "estAngularRateY",
-#     "estAngularRateZ",
-#     "magneticFieldX",
-#     "magneticFieldY",
-#     "magneticFieldZ",
 
-#     ]
+CONTROL_INPUT_DIM = 0
+CONTROL_INPUT_FIELDS = [
+    
+    ]
 
 class StateProcessCovariance(Enum):
-    """Enum that represents process variance scalars on kinematic and gyro covariances"""
-    # acc x, acc y, acc z, gyro x, gyro y, gyro z
-    STANDBY = ([1e-3, 1e-3, 1e-4, 1e-4, 1e-4, 1e-4],)
-    MOTOR_BURN= ([1e1, 1e1, 1e1, 1, 1, 1],)
-    COAST = ([1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3],)
-    FREEFALL = ([1e1, 1e1, 1e1, 1e3, 1e3, 1e3],)
-    LANDED = ([1e-3, 1e-3, 1e-4, 1e-4, 1e-4, 1e-4],)
+    """
+    Enum that represents process variance scalars on the diagonal of the process noise covariance
+    matrix for each flight state.
+    """
+    STANDBY = (
+        [1, 1, 1,
+         1, 1, 1,
+         0, 0, 0,
+         0, 0, 0,
+         0, 0, 0,
+         0, 0, 0,
+         1, 1, 1]
+        ,)
+    MOTOR_BURN = (
+        [1, 1, 1,
+         1, 1, 1,
+         0, 0, 0,
+         0, 0, 0,
+         0, 0, 0,
+         0, 0, 0,
+         1, 1, 1]
+        ,)
+    COAST = (
+        [1, 1, 1,
+         1, 1, 1,
+         0, 0, 0,
+         0, 0, 0,
+         0, 0, 0,
+         0, 0, 0,
+         1, 1, 1]
+        ,)
+    FREEFALL = (
+        [1, 1, 1,
+         1, 1, 1,
+         0, 0, 0,
+         0, 0, 0,
+         0, 0, 0,
+         0, 0, 0,
+         1, 1, 1]
+        ,)
+    LANDED = (
+        [1, 1, 1,
+         1, 1, 1,
+         0, 0, 0,
+         0, 0, 0,
+         0, 0, 0,
+         0, 0, 0,
+         1, 1, 1]
+        ,)
 
     @property
     def array(self) -> npt.NDArray:
@@ -71,33 +137,21 @@ class StateProcessCovariance(Enum):
 class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
 
-    STANDBY = ([5, 1e-3, 1e-3, 1e-4, 2e-4, 2e-4, 7e-4],)
-    MOTOR_BURN = ([1e3, 1e-4, 1e-4, 1e-4, 4e-4, 4e-4, 1e-3],)
-    COAST = ([2e1, 1e-3, 1e-3, 5e-4, 2e-4, 2e-4, 7e-4],)
-    FREEFALL = ([20, 1e1, 1e1, 1e1, 1e2, 1e2, 1e2],)
-    LANDED = ([5, 1e-3, 1e-3, 1e-4, 2e-4, 2e-4, 7e-4],)   
+    STANDBY = ([1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2],)
+    MOTOR_BURN = ([1e-1, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2],)
+    COAST = ([1e-2, 1 ,1, 1],)
+    FREEFALL = ([1e-2, 1 ,1, 1],)
+    LANDED = ([1e-3, 1 ,1, 1],)   
 
     @property
     def matrix(self) -> npt.NDArray:
         """Returns as numpy array and makes immutable"""
         return np.array(self.value[0])
 
-# Magnetic Field
-# https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml#igrfwmm
-class MagneticField(Enum):
-    NED = ([22.223, -3.613, 43.318],)
-    DECLINATION = -9 + (1/60) * -14 # degrees
-    INCLINATION = 62 + (1/60) * 32 # degrees
-    HORIZONTAL_INTENSITY = 22.515
-
-    @property
-    def vector(self) -> npt.NDArray:
-        """Returns as numpy array and makes immutable"""
-        return np.array(self.value[0])
 
 
 # Sigma Point Constants
-ALPHA = 1
+ALPHA = 1e-3
 BETA = 2
 KAPPA = 0
 
@@ -110,27 +164,8 @@ GROUND_ALTITUDE_METERS = 20
 
 # aerodynamic constants
 GRAVITY = 9.798
-ROCKET_MASS = 19.46 - 1.8
-AIR_DENSITY = 1.15
-REFERENCE_AREA = 0.01929
-DRAG_COEFFICIENT = 0.45
+MIN_VEL_FOR_DRAG = 25.0  # m/s
 
 # log files
-#TIMESTAMP_COL_NAME = "update_timestamp_ns"
 TIMESTAMP_COL_NAME = "timestamp"
-TIMESTAMP_UNITS = 1e9
-#LOG_HEADER_STATES = {0: "current_altitude", 1: "vertical_velocity", 2: "estCompensatedAccelX", 3: "estAngularRateX",  4: "estAngularRateY", 5: "estAngularRateZ"}
-LOG_HEADER_STATES = {
-    0: "alt_interp",
-    1: "vertical_velocity",
-    2: "scaledAccelX",
-    3: "scaledAccelY",
-    4: "scaledAccelZ",
-    5: "estAngularRateX",
-    6: "estAngularRateY",
-    7: "estAngularRateZ",
-    8: "estOrientQuaternionW",
-    9: "estOrientQuaternionX",
-    10: "estOrientQuaternionY",
-    11: "estOrientQuaternionZ",
-    }
+TIMESTAMP_UNITS = 1

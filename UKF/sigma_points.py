@@ -53,7 +53,7 @@ class SigmaPoints:
         # According to Edgar Kraft's paper on quaternion UKF's, we need to apply the process noise
         # before generating the sigma points, as opposed to a standard UKF where the noise is added
         # after propagating the sigma points through the state transition function.
-        scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + self._n)*(P + Q), upper=False)
+        scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + self._n)*(P + Q))
         
         # array to hold the sigma points, first row is the mean state with no perturbation applied.
         sigmas = np.zeros([self.num_sigmas(), state_dim])
@@ -74,6 +74,9 @@ class SigmaPoints:
             # the conjucate to "subtract".
             sigmas[i+1][self._quat_idx] = quaternion.as_float_array(quat_X * quat_sigma)
             sigmas[self._n+i+1][self._quat_idx] = quaternion.as_float_array(quat_X * quat_sigma.conjugate())
+
+            # sigmas[i+1] = np.add(X, scaled_cholesky_sqrt[:,i])
+            # sigmas[self._n+i+1] = np.subtract(X, scaled_cholesky_sqrt[:, i])
         return sigmas
 
     def num_sigmas(self) -> int:

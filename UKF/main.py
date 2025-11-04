@@ -14,21 +14,21 @@ def compute_pitch(X_data):
     return pitch * (180/np.pi)
 
 def run():
-    launch_log = Path("launch_data/pel1_alt.csv")
+    launch_log = np.array([Path("launch_data/pressure_sensor_data.csv"), Path("launch_data/imu_data.csv"), Path("launch_data/magnetometer_data.csv")])
 
-    min_r = 5005
-    max_r = 30700
+    min_t = 912
+    max_t = 915
 
 
-    plotter = Plotter(file_path=launch_log, min_r=min_r, max_r=max_r)
-    data_processor = DataProcessor(launch_log, min_r=min_r, max_r=max_r)
-    context = Context(data_processor, plotter=plotter)
+    plotter = Plotter()
+    data_processor = DataProcessor(bmp_data = launch_log[0], imu_data = launch_log[1], mag_data = launch_log[2], min_t=min_t, max_t=max_t)
+    context = Context(data_processor, plotter)
     run_data_loop(context)
+    
 
 def run_data_loop(context: Context):
     while True:
         context.update()
-        
         if context.shutdown_requested:
             break
 

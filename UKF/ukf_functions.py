@@ -1,57 +1,105 @@
-from UKF.constants import GRAVITY, DRAG_COEFFICIENT, ROCKET_MASS, REFERENCE_AREA, AIR_DENSITY
+from UKF.constants import GRAVITY, MIN_VEL_FOR_DRAG
 import numpy as np
 import numpy.typing as npt
 import quaternion as q
 
-def measurement_function(sigmas, init_alt, X):
+def measurement_function(sigmas, init_pressure, X):
     n = len(sigmas)
     quat_state = X[n-4:n]
     quat_state /= np.linalg.norm(quat_state)
     quat_state = q.from_float_array(quat_state)
-    
-    gyro_sigmas = sigmas[n-7:n-4]
-    global_acc = np.array([0, sigmas[2], sigmas[3], sigmas[4]])
-    global_acc = q.from_float_array(global_acc / GRAVITY)
-    acc = quat_state.conjugate() * global_acc * quat_state
-    alt = sigmas[0] + init_alt
-    gyro = gyro_sigmas
 
-    return np.array([alt, acc.x, acc.y, acc.z, gyro[0], gyro[1], gyro[2]])
+    pressure = init_pressure * np.power(1 - (sigmas[0] / 44330.0), 5.255876)
+    acc_x = sigmas[6]/np.sqrt(2) + sigmas[7]/np.sqrt(2) + sigmas[12]
+    acc_y = -sigmas[6]/np.sqrt(2) + sigmas[7]/np.sqrt(2) + sigmas[13]
+    acc_z = sigmas[8] + sigmas[14]
+    global_acc = q.from_float_array(np.array([0, acc_x, acc_y, acc_z]) / GRAVITY)
+    acc_measurement = quat_state.conjugate() * global_acc * quat_state
+    gyro_x = sigmas[9]/np.sqrt(2) + sigmas[10]/np.sqrt(2) + sigmas[15]
+    gyro_y = -sigmas[9]/np.sqrt(2) + sigmas[10]/np.sqrt(2) + sigmas[16]
+    gyro_z = sigmas[11] + sigmas[17]
 
-def state_transition_function(sigmas, dt, drag_option: bool = False) -> npt.NDArray:
-    n = len(sigmas)
-    next_accs = sigmas[2:5]
-    next_vel = sigmas[1] + (-next_accs[2] - GRAVITY) * dt
-    if drag_option:
-        drag_acc = calc_drag(next_vel) / ROCKET_MASS
-        next_vel -= drag_acc * dt
-    next_alt = sigmas[0] + (next_vel * dt)
-
-    delta_theta = sigmas[n-7:n-4] * dt
-
-    # TODO: maybe figure out this math, idk if it even makes it much better
-    #delta_theta[0] = delta_theta[0]*np.cos(delta_theta[2])-delta_theta[1]*np.sin(delta_theta[2])
-    #delta_theta[1] = delta_theta[0]*np.sin(delta_theta[2])+delta_theta[1]*np.cos(delta_theta[2])
-
-    quat = q.from_float_array(sigmas[n-4:n])
-    q_next = quat * q.from_rotation_vector(delta_theta)
-    q_next = q_next.normalized()
+    m_world = q.quaternion(0, *np.array([1, 0, 0]))
+    m_body = quat_state.conjugate() * m_world * quat_state
 
 
     return np.array([
-        next_alt,
-        next_vel, 
-        next_accs[0],
-        next_accs[1],
-        next_accs[2],
-        delta_theta[0]/dt,
-        delta_theta[1]/dt,
-        delta_theta[2]/dt,
-        q_next.w,
-        q_next.x,
-        q_next.y,
-        q_next.z
+        pressure,
+        acc_measurement.x,
+        acc_measurement.y,
+        acc_measurement.z,
+        gyro_x,
+        gyro_y,
+        gyro_z,
+        m_body.x,
+        m_body.y,
+        m_body.z,
         ])
 
-def calc_drag(velocity):
-    return 0.5 * DRAG_COEFFICIENT * REFERENCE_AREA * AIR_DENSITY * velocity**2
+# def state_transition_function(sigmas, dt) -> npt.NDArray:
+#     accel = sigmas[6:9]
+#     accel_ms = accel * GRAVITY
+#     accel_ms[0] -= GRAVITY
+#     next_vels = sigmas[3:6] + accel_ms * dt
+#     next_positions = sigmas[0:3] + next_vels * dt
+#     return np.array([
+#         next_positions[0],
+#         next_positions[1],
+#         next_positions[2],
+#         next_vels[0],
+#         next_vels[1],
+#         next_vels[2],
+#         sigmas[6],
+#         sigmas[7],
+#         sigmas[8],
+#         sigmas[9],
+#         sigmas[10],
+#         sigmas[11],
+#     ])
+
+
+def state_transition_function(sigmas, dt) -> npt.NDArray:
+    n = len(sigmas)
+    # quaternions always last 4 states
+    quat = q.from_float_array(sigmas[n-4:n])
+    # get delta theta from angular velocity
+    gyro = sigmas[9:12]
+    delta_theta = gyro * dt
+    # update quaternion with small rotation (delta theta -> delta quaternion)
+    delta_q = q.from_rotation_vector(delta_theta)
+    next_quat = (quat * delta_q).normalized()
+    
+    accel = sigmas[6:9]
+    accel_grav = accel * GRAVITY
+    accel_grav[2] -= GRAVITY
+    # calculate next vels without drag first
+    next_vels = sigmas[3:6] + accel_grav * dt
+    next_positions = sigmas[0:3] - sigmas[3:6] * dt
+
+        
+
+    return np.array([
+        next_positions[0],
+        next_positions[1],
+        next_positions[2],
+        next_vels[0],
+        next_vels[1],
+        next_vels[2],
+        accel[0],
+        accel[1],
+        accel[2],
+        gyro[0],
+        gyro[1],
+        gyro[2],
+        sigmas[12],
+        sigmas[13],
+        sigmas[14],
+        sigmas[15],
+        sigmas[16],
+        sigmas[17],
+        next_quat.w,
+        next_quat.x,
+        next_quat.y,
+        next_quat.z,
+        ])
+

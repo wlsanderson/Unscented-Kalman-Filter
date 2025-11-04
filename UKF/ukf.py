@@ -14,6 +14,7 @@ class UKF:
         "Q",
         "H",
         "R",
+        "U",
         "_dim_x",
         "_dim_z",
         "_sigma_points_class",
@@ -52,7 +53,6 @@ class UKF:
         self.z_error_score = None
 
 
-
     def predict(self, dt):
         if (dt < 1e-12):
             raise ValueError("dt must be positive and non-zero")
@@ -65,10 +65,10 @@ class UKF:
             X = self.X,
         )
 
-    def update(self, z, init_alt):
+    def update(self, z, init_pressure):
         sigmas_h = []
         for s in self._sigmas_f:
-            sigmas_h.append(self.H(s, init_alt, self.X))
+            sigmas_h.append(self.H(s, init_pressure, self.X))
         self._sigmas_h = np.atleast_2d(sigmas_h)
         pred_z, innovation_cov = self._unscented_transform_H(
             self._sigmas_h,
@@ -81,18 +81,19 @@ class UKF:
         P_cross_covariance = self._calculate_cross_cov(self.X, pred_z)
 
         kalman_gain = np.dot(P_cross_covariance, innovation_cov_inv)
-        #kalman_gain[self._rotvec_idx, 1:4] = 0.0
         residual = np.subtract(z, pred_z)
 
         self.mahalanobis_dist = residual.T @ innovation_cov_inv @ residual
         self.z_error_score = (residual**2) / np.diag(innovation_cov)
-
         delta_x =  np.dot(kalman_gain, residual)
         quat = quaternion.from_float_array(self.X[self._quat_idx])
 
         delta_q = quaternion.from_rotation_vector(delta_x[self._rotvec_idx])
         self.X[self._vec_idx] += delta_x[self._vec_idx]
         self.X[self._quat_idx] = quaternion.as_float_array((delta_q * quat).normalized())
+
+        # self.X = np.add(self.X, delta_x)
+
         self.P = self.P - np.dot(kalman_gain, np.dot(innovation_cov, kalman_gain.T))
         self.P = 0.5 * (self.P + self.P.T)  # enforce symmetry
         eigvals, eigvecs = np.linalg.eigh(self.P)
@@ -103,7 +104,6 @@ class UKF:
         # splitting sigma points up into vector states and quaternion states
         vector_sigmas = sigmas[:, self._vec_idx]
         quat_sigmas = quaternion.from_float_array(sigmas[:, self._quat_idx])
-        
         quat_state = quaternion.from_float_array(X[self._quat_idx])
         # small delta quaternions are made by multiplying the quaternion sigmas by the
         # inverse of the current quaternion state
@@ -126,6 +126,10 @@ class UKF:
         vec_residual = vector_sigmas - vector_mean[np.newaxis, :]
         full_residuals = np.hstack((vec_residual, delta_rotvecs))
         P_covariance = (full_residuals.T * Wc) @  full_residuals
+
+        # x_mean = np.dot(Wm, sigmas)
+        # residuals = sigmas - x_mean[np.newaxis, :]
+        # P_covariance = (residuals.T * Wc) @ residuals
         return (x_mean, P_covariance)
     
     @staticmethod
@@ -146,6 +150,7 @@ class UKF:
 
     def _calculate_cross_cov(self, x, z):
         P_cross_cov = np.zeros((self._sigmas_f.shape[1] - 1, self._sigmas_h.shape[1]))
+        # P_cross_cov = np.zeros((self._sigmas_f.shape[1], self._sigmas_h.shape[1]))
 
         n = self._sigmas_f.shape[0]
         for i in range(n):
@@ -157,6 +162,10 @@ class UKF:
             dx = np.concatenate([dx_vector, delta_rotvecs])
             dz = np.subtract(self._sigmas_h[i], z)
             P_cross_cov += self._sigma_points_class.Wc[i] * np.outer(dx, dz)
+
+            # dx = np.subtract(self._sigmas_f[i], x)
+            # dz = np.subtract(self._sigmas_h[i], z)
+            # P_cross_cov += self._sigma_points_class.Wc[i] * np.outer(dx, dz)
         return P_cross_cov
     
     

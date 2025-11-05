@@ -1,6 +1,6 @@
 import pandas as pd
 from pathlib import Path
-from UKF.constants import MEASUREMENT_FIELDS, CONTROL_INPUT_FIELDS, TIMESTAMP_COL_NAME
+from UKF.constants import MEASUREMENT_FIELDS, CONTROL_INPUT_FIELDS, TIMESTAMP_COL_NAME, MAG_CAL_OFFSET, MAG_CAL_SCALE_MATRIX
 import numpy as np
 
 
@@ -20,6 +20,7 @@ class DataProcessor:
         bmp_df = self.get_sensor_df(bmp_data)
         imu_df = self.get_sensor_df(imu_data)
         mag_df = self.get_sensor_df(mag_data)
+        mag_df = self.fix_mag_data(mag_df)
 
         self._df = pd.concat([bmp_df, imu_df, mag_df], ignore_index=True)
         self._df.sort_values(by=TIMESTAMP_COL_NAME, inplace=True, ignore_index=True)
@@ -58,12 +59,14 @@ class DataProcessor:
                     
                     n_meas = len(MEASUREMENT_FIELDS)
                     n_inputs = len(CONTROL_INPUT_FIELDS)
-                    self.measurements = np.array(new_data[1 : 1 + n_meas])
+                    self.measurements = np.array(new_data[1 : 1 + n_meas], dtype=np.float64)
                     self.inputs = np.array(new_data[1 + n_meas : 1 + n_meas + n_inputs])
                     mag_idx = slice(n_meas - 3, n_meas)
                     mag = self.measurements[mag_idx]
+                    # calibrate
+                    mag = (mag - MAG_CAL_OFFSET) @ MAG_CAL_SCALE_MATRIX
                     mag_norm = np.linalg.norm(mag)
-                    self.measurements[mag_idx] /= mag_norm
+                    self.measurements[mag_idx] =  mag / mag_norm
                     self._last_data = new_data
                     return True
             print("eof")
@@ -78,3 +81,10 @@ class DataProcessor:
         headers = pd.read_csv(data, nrows=0)
         needed_measurements = list((set(MEASUREMENT_FIELDS) | set(CONTROL_INPUT_FIELDS) | set([TIMESTAMP_COL_NAME])) & set(headers.columns))
         return pd.read_csv(data, usecols=needed_measurements)
+    
+    def fix_mag_data(self, data):
+        df = data.copy()
+        replace_idx = list(range(10, len(df), 11))
+        cols_to_replace = df.columns[1:]
+        df.loc[replace_idx, cols_to_replace] = df.loc[[i - 1 for i in replace_idx], cols_to_replace].values
+        return df

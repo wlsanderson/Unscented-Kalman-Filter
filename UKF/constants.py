@@ -10,23 +10,23 @@ STATE_DIM = 22
 INITIAL_STATE_ESTIMATE = np.array([
     0.0, 0.0, 0.0, # position (x, y, z)
     0.0, 0.0, 0.0, # velocity (x, y, z)
-    1.0, 0.0, 0.0, # accel (x, y, z)
+    0.0, 0.0, 1.0, # accel (x, y, z)
     0.0, 0.0, 0.0, # gyro (x, y, z)
     0.0, 0.0, 0.0, # accelerometer offsets (x, y, z)
     0.0, 0.0, 0.0, # gyro offsets (x, y, z)
-    1.0, 0.0, 0.0, 0.0, # quaternion orientation (w, x, y, z)
+    0.11329, 0.68843, -0.13416, 0.70373, # quaternion orientation (w, x, y, z)
     ])
 """State vector initial estimate"""
 
 # initial state covariance
 INITIAL_STATE_COV = np.diag([
-    1e-5, 1e-3, 1e-3, # position (x, y, z)
-    1e-5, 1e-3, 1e-3, # velocity (x, y, z)
-    1e-5, 1e-3, 1e-3, # accel (x, y, z)
+    1e-3, 1e-3, 1e-3, # position (x, y, z)
+    1e-3, 1e-3, 1e-3, # velocity (x, y, z)
+    1e-3, 1e-3, 1e-3, # accel (x, y, z)
     1e-3, 1e-3, 1e-3, # gyro (x, y, z)
-    1e-1, 1e-1, 1e-1, # accelerometer offsets (x, y, z)
-    1e-1, 1e-1, 1e-1, # gyro offsets (x, y, z)
-    1e1, 1e1, 1e1, # quaternion orientation (w, x, y, z)
+    1e-5, 1e-5, 1e-5, # accelerometer offsets (x, y, z)
+    1e-5, 1e-5, 1e-5, # gyro offsets (x, y, z)
+    1e3, 1e3, 1e3, # quaternion orientation (w, x, y, z)
 ])
 
 class States(Enum):
@@ -83,49 +83,49 @@ class StateProcessCovariance(Enum):
     matrix for each flight state.
     """
     STANDBY = (
-        [1, 1, 1,
-         1, 1, 1,
-         0, 0, 0,
-         0, 0, 0,
-         0, 0, 0,
-         0, 0, 0,
-         1, 1, 1]
+        [1, 1, 1, # position (x, y, z)
+         1, 1, 1, # velocity (x, y, z)
+         0, 0, 0, # acceleration (x, y, z)
+         0, 0, 0, # gyro (x, y, z)
+         0, 0, 0, # accelerometer offset (x, y, z)
+         0, 0, 0, # gyroscope offset (x, y, z)
+         1, 1, 1] # orientation (r, p, y)
         ,)
     MOTOR_BURN = (
-        [1, 1, 1,
-         1, 1, 1,
-         0, 0, 0,
-         0, 0, 0,
-         0, 0, 0,
-         0, 0, 0,
-         1, 1, 1]
+        [1, 1, 1, # position (x, y, z)
+         1, 1, 1, # velocity (x, y, z)
+         0, 0, 0, # acceleration (x, y, z)
+         0, 0, 0, # gyro (x, y, z)
+         0, 0, 0, # accelerometer offset (x, y, z)
+         0, 0, 0, # gyroscope offset (x, y, z)
+         1, 1, 1] # orientation (r, p, y)
         ,)
     COAST = (
-        [1, 1, 1,
-         1, 1, 1,
-         0, 0, 0,
-         0, 0, 0,
-         0, 0, 0,
-         0, 0, 0,
-         1, 1, 1]
+        [1, 1, 1, # position (x, y, z)
+         1, 1, 1, # velocity (x, y, z)
+         0, 0, 0, # acceleration (x, y, z)
+         0, 0, 0, # gyro (x, y, z)
+         0, 0, 0, # accelerometer offset (x, y, z)
+         0, 0, 0, # gyroscope offset (x, y, z)
+         1, 1, 1] # orientation (r, p, y)
         ,)
     FREEFALL = (
-        [1, 1, 1,
-         1, 1, 1,
-         0, 0, 0,
-         0, 0, 0,
-         0, 0, 0,
-         0, 0, 0,
-         1, 1, 1]
+        [1, 1, 1, # position (x, y, z)
+         1, 1, 1, # velocity (x, y, z)
+         0, 0, 0, # acceleration (x, y, z)
+         0, 0, 0, # gyro (x, y, z)
+         0, 0, 0, # accelerometer offset (x, y, z)
+         0, 0, 0, # gyroscope offset (x, y, z)
+         1, 1, 1] # orientation (r, p, y)
         ,)
     LANDED = (
-        [1, 1, 1,
-         1, 1, 1,
-         0, 0, 0,
-         0, 0, 0,
-         0, 0, 0,
-         0, 0, 0,
-         1, 1, 1]
+        [1, 1, 1, # position (x, y, z)
+         1, 1, 1, # velocity (x, y, z)
+         0, 0, 0, # acceleration (x, y, z)
+         0, 0, 0, # gyro (x, y, z)
+         0, 0, 0, # accelerometer offset (x, y, z)
+         0, 0, 0, # gyroscope offset (x, y, z)
+         1, 1, 1] # orientation (r, p, y)
         ,)
 
     @property
@@ -137,7 +137,7 @@ class StateProcessCovariance(Enum):
 class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
 
-    STANDBY = ([1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2],)
+    STANDBY = ([1, 1, 1, 1, 1, 1, 1, 1, 1, 1],)
     MOTOR_BURN = ([1e-1, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2],)
     COAST = ([1e-2, 1 ,1, 1],)
     FREEFALL = ([1e-2, 1 ,1, 1],)
@@ -165,6 +165,14 @@ GROUND_ALTITUDE_METERS = 20
 # aerodynamic constants
 GRAVITY = 9.798
 MIN_VEL_FOR_DRAG = 25.0  # m/s
+
+# magnetometer calibration
+MAG_CAL_OFFSET = np.array([9.692693349054112, 1.248260969894928, -9.411992358543154])
+MAG_CAL_SCALE_MATRIX = np.array([
+    [1.000685940805412, 0.018460238433189, 0.022421305403328],
+    [0.018460238433189, 1.044313232820982, -0.041935634277478],
+    [0.022421305403328, -0.041935634277478, 0.959443156862626],
+    ])
 
 # log files
 TIMESTAMP_COL_NAME = "timestamp"

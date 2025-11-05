@@ -16,8 +16,8 @@ def compute_pitch(X_data):
 def run():
     launch_log = np.array([Path("launch_data/pressure_sensor_data.csv"), Path("launch_data/imu_data.csv"), Path("launch_data/magnetometer_data.csv")])
 
-    min_t = 912
-    max_t = 915
+    min_t = 0
+    max_t = 15
 
 
     plotter = Plotter()

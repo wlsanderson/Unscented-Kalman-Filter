@@ -19,6 +19,7 @@ class Context:
         "_flight_state",
         "_timestamp",
         "_initial_pressure",
+        "_initial_mag",
         "_max_altitude",
         "_max_velocity",
         "measurement",
@@ -45,6 +46,7 @@ class Context:
         self._flight_state: State = StandbyState(self)
         self.shutdown_requested: bool = False
         self._initial_pressure: np.float64 | None = None
+        self._initial_mag: npt.NDArray | None = None
         self._max_velocity = 0.0
         self._max_altitude = 0.0
         
@@ -70,19 +72,25 @@ class Context:
         if self._initial_pressure is None:
             self._initial_pressure = self.data_processor.measurements[0]
 
+        if self._initial_mag is None:
+            
+            self._initial_mag = self.data_processor.measurements[-3:]
+
         # runs predict with the calculated dt and control input
         self.ukf.predict(self.data_processor.dt)
         if self._plotter:
             self._plotter.timestamps_pred.append(self._timestamp)
             self._plotter.X_data_pred.append(self.ukf.X.copy())
         self.ukf.R = np.diag(measurement_noise_diag)
-        self.ukf.update(self.data_processor.measurements, self._initial_pressure)
+
+        self.ukf.update(self.data_processor.measurements, self._initial_pressure, self._initial_mag)
         if self._plotter:
             self._plotter.X_data.append(self.ukf.X.copy())
             self._plotter.timestamps.append(self._timestamp)
             self._plotter.mahal.append(self.ukf.mahalanobis_dist)
             self._plotter.z_error_score.append(self.ukf.z_error_score)
-#        self._plotter.timestamps.append(self._timestamp)
+        
+        # self._plotter.timestamps.append(self._timestamp)
 
         self._max_altitude = max(self._max_altitude, self.ukf.X[2])
         self._max_velocity = max(self._max_velocity, self.ukf.X[5])

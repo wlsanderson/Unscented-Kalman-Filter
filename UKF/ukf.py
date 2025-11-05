@@ -65,10 +65,10 @@ class UKF:
             X = self.X,
         )
 
-    def update(self, z, init_pressure):
+    def update(self, z, init_pressure, init_mag):
         sigmas_h = []
         for s in self._sigmas_f:
-            sigmas_h.append(self.H(s, init_pressure, self.X))
+            sigmas_h.append(self.H(s, init_pressure, init_mag, self.X))
         self._sigmas_h = np.atleast_2d(sigmas_h)
         pred_z, innovation_cov = self._unscented_transform_H(
             self._sigmas_h,
@@ -82,13 +82,14 @@ class UKF:
 
         kalman_gain = np.dot(P_cross_covariance, innovation_cov_inv)
         residual = np.subtract(z, pred_z)
-
         self.mahalanobis_dist = residual.T @ innovation_cov_inv @ residual
         self.z_error_score = (residual**2) / np.diag(innovation_cov)
+
         delta_x =  np.dot(kalman_gain, residual)
         quat = quaternion.from_float_array(self.X[self._quat_idx])
 
         delta_q = quaternion.from_rotation_vector(delta_x[self._rotvec_idx])
+        
         self.X[self._vec_idx] += delta_x[self._vec_idx]
         self.X[self._quat_idx] = quaternion.as_float_array((delta_q * quat).normalized())
 

@@ -1,6 +1,6 @@
 import pandas as pd
 from pathlib import Path
-from UKF.constants import MEASUREMENT_FIELDS, CONTROL_INPUT_FIELDS, TIMESTAMP_COL_NAME, MAG_CAL_OFFSET, MAG_CAL_SCALE_MATRIX
+from UKF.constants import MEASUREMENT_FIELDS, TIMESTAMP_COL_NAME, MAG_CAL_OFFSET, MAG_CAL_SCALE_MATRIX
 import numpy as np
 
 
@@ -31,7 +31,7 @@ class DataProcessor:
         if min_t is not None:
             self._df = self._df.loc[self._df['timestamp'] > min_t]
         self._iterator = self._df.itertuples(index=False, name=None)
-        self._last_data = np.full(len(MEASUREMENT_FIELDS) + len(CONTROL_INPUT_FIELDS) + 1, None, dtype=object)
+        self._last_data = np.full(len(MEASUREMENT_FIELDS) + 1, None, dtype=object)
 
 
     def fetch(self):
@@ -58,9 +58,8 @@ class DataProcessor:
                     self.dt = timestamp - self._min_t if last_timestamp is None else timestamp - last_timestamp
                     
                     n_meas = len(MEASUREMENT_FIELDS)
-                    n_inputs = len(CONTROL_INPUT_FIELDS)
                     self.measurements = np.array(new_data[1 : 1 + n_meas], dtype=np.float64)
-                    self.inputs = np.array(new_data[1 + n_meas : 1 + n_meas + n_inputs])
+                    self.inputs = np.array(new_data[1 + n_meas : 1 + n_meas])
                     mag_idx = slice(n_meas - 3, n_meas)
                     mag = self.measurements[mag_idx]
                     # calibrate
@@ -79,7 +78,7 @@ class DataProcessor:
     
     def get_sensor_df(self, data):
         headers = pd.read_csv(data, nrows=0)
-        needed_measurements = list((set(MEASUREMENT_FIELDS) | set(CONTROL_INPUT_FIELDS) | set([TIMESTAMP_COL_NAME])) & set(headers.columns))
+        needed_measurements = list((set(MEASUREMENT_FIELDS) | set([TIMESTAMP_COL_NAME])) & set(headers.columns))
         return pd.read_csv(data, usecols=needed_measurements)
     
     def fix_mag_data(self, data):

@@ -53,11 +53,11 @@ class UKF:
         self.z_error_score = None
 
 
-    def predict(self, dt):
+    def predict(self, dt, u):
         if (dt < 1e-12):
             raise ValueError("dt must be positive and non-zero")
         self.X[self._quat_idx] /= np.linalg.norm(self.X[self._quat_idx])
-        self.compute_process_sigmas(dt, self.Q(dt))
+        self.compute_process_sigmas(dt, self.Q(dt), u)
         self.X, self.P = self._unscented_transform_F(
             sigmas = self._sigmas_f,
             Wm = self._sigma_points_class.Wm,
@@ -65,7 +65,7 @@ class UKF:
             X = self.X,
         )
 
-    def update(self, z, init_pressure, init_mag):
+    def update(self, z, init_pressure, init_mag, u):
         sigmas_h = []
         for s in self._sigmas_f:
             sigmas_h.append(self.H(s, init_pressure, init_mag, self.X))
@@ -86,6 +86,8 @@ class UKF:
         self.z_error_score = (residual**2) / np.diag(innovation_cov)
 
         delta_x =  np.dot(kalman_gain, residual)
+        if u[0] is None:
+            delta_x[12:18] = np.zeros(6)
         quat = quaternion.from_float_array(self.X[self._quat_idx])
 
         delta_q = quaternion.from_rotation_vector(delta_x[self._rotvec_idx])
@@ -135,7 +137,6 @@ class UKF:
     
     @staticmethod
     def _unscented_transform_H(sigmas: npt.NDArray[np.float64], Wm, Wc, noise_cov = None):
-        
         x_mean = np.dot(Wm, sigmas)
         residual = sigmas - x_mean[np.newaxis, :]
         P_covariance = np.dot(residual.T, np.dot(np.diag(Wc), residual))
@@ -144,10 +145,10 @@ class UKF:
             P_covariance += noise_cov
         return (x_mean, P_covariance)
 
-    def compute_process_sigmas(self, dt, Q):
+    def compute_process_sigmas(self, dt, Q, u):
         sigmas = self._sigma_points_class.calculate_sigma_points(self.X, self.P, Q)
         for i, s in enumerate(sigmas):
-            self._sigmas_f[i] = self.F(s, dt)
+            self._sigmas_f[i] = self.F(s, dt, u)
 
     def _calculate_cross_cov(self, x, z):
         P_cross_cov = np.zeros((self._sigmas_f.shape[1] - 1, self._sigmas_h.shape[1]))

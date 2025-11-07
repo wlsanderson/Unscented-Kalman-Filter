@@ -4,20 +4,13 @@ from UKF.data_processor import DataProcessor
 from pathlib import Path
 
 import numpy as np
-import quaternion
 
-def compute_pitch(X_data):
-    q = X_data[:, 8:12]
-    r = quaternion.from_float_array(q)
-    euler = quaternion.as_euler_angles(r)
-    pitch = euler[:, 1]  # second column is pitch
-    return pitch * (180/np.pi)
 
 def run():
     launch_log = np.array([Path("launch_data/pressure_sensor_data.csv"), Path("launch_data/imu_data.csv"), Path("launch_data/magnetometer_data.csv")])
 
-    min_t = 0
-    max_t = 15
+    min_t = 880
+    max_t = 905
 
 
     plotter = Plotter()

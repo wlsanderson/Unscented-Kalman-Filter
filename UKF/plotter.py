@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import quaternion as q
 import plotly.graph_objects as go
 from dash import Dash, dcc, html, Output, Input
 from pathlib import Path
@@ -19,6 +20,7 @@ class Plotter:
         "timestamps_pred",
         "state_times",
         "z_error_score",
+        "uncerts",
     )
 
     def __init__(self):
@@ -30,6 +32,7 @@ class Plotter:
         self.timestamps_pred = []
         self.timestamps = []
         self.state_times = []
+        self.uncerts = []
 
 
     def start_plot(self):
@@ -39,8 +42,17 @@ class Plotter:
         timestamps_pred = (timestamps_pred - timestamps_pred[0]) / TIMESTAMP_UNITS
         X_data = np.array(self.X_data, dtype=np.float64)
         X_data_pred = np.array(self.X_data_pred, dtype=np.float64) if self.X_data_pred else None
+        X_uncerts = np.array(self.uncerts, dtype=np.float64) if self.uncerts else None
         mahal = np.array(self.mahal, dtype=np.float64) if self.mahal else None
         z_error_score = np.array(self.z_error_score, dtype=np.float64) if self.z_error_score else None
+
+        X_pos_sigma = np.zeros(X_data.shape)
+        X_neg_sigma = np.zeros(X_data.shape)
+        X_pos_sigma[:, :-4] = X_data[:, :-4] + np.square(X_uncerts[:, :-3])
+        X_neg_sigma[:, :-4] = X_data[:, :-4] - np.square(X_uncerts[:, :-3])
+        X_delta_quat_sigma = np.sum(X_uncerts[:, -3:])
+        X_pos_sigma[:, -4:] = X_data[:, -4:] + X_delta_quat_sigma
+        X_neg_sigma[:, -4:] = X_data[:, -4:] - X_delta_quat_sigma
 
         app = Dash(__name__)
         fig = go.Figure()
@@ -65,6 +77,10 @@ class Plotter:
             if X_data_pred is not None:
                 pred_y = X_data_pred[:, s] if X_data_pred.size else []
                 fig.add_trace(go.Scatter(x=timestamps_pred, y=pred_y, name=f"UKF {label} pred", mode="markers"))
+
+            if X_uncerts is not None:
+                fig.add_trace(go.Scatter(x=timestamps_pred, y=X_pos_sigma[:,s], name=f"UKF {label} positive sigma"))
+                fig.add_trace(go.Scatter(x=timestamps_pred, y=X_neg_sigma[:,s], name=f"UKF {label} negative sigma"))
 
         if mahal is not None:
             fig.add_trace(go.Scatter(x=timestamps, y=mahal, name="Mahalanobis Distance"))
@@ -134,7 +150,10 @@ class Plotter:
                 new_fig.add_trace(go.Scatter(x=timestamps, y=X_data[:, s] if len(X_data) else [], name=f"UKF {label}"))
                 if X_data_pred is not None:
                     new_fig.add_trace(go.Scatter(x=timestamps_pred, y=X_data_pred[:, s], name=f"UKF {label} pred", mode="markers"))
-
+                if X_uncerts is not None:
+                    new_fig.add_trace(go.Scatter(x=timestamps_pred, y=X_pos_sigma[:,s], name=f"UKF {label} positive sigma"))
+                    new_fig.add_trace(go.Scatter(x=timestamps_pred, y=X_neg_sigma[:,s], name=f"UKF {label} negative sigma"))
+                        
             if mahal is not None and "mahal" in toggles:
                 new_fig.add_trace(go.Scatter(x=timestamps, y=mahal, name="Mahalanobis Distance"))
 

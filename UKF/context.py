@@ -1,7 +1,7 @@
 from UKF.ukf import UKF
 from UKF.sigma_points import SigmaPoints
 from UKF.data_processor import DataProcessor
-from UKF.constants import STATE_DIM, ALPHA, BETA, KAPPA, MEASUREMENT_DIM, INITIAL_STATE_ESTIMATE, INITIAL_STATE_COV, TIMESTAMP_UNITS, CONTROL_INPUT_DIM
+from UKF.constants import STATE_DIM, ALPHA, BETA, KAPPA, MEASUREMENT_DIM, INITIAL_STATE_ESTIMATE, INITIAL_STATE_COV, TIMESTAMP_UNITS
 from UKF.ukf_functions import measurement_function
 from UKF.plotter import Plotter
 from UKF.state import State, StandbyState
@@ -49,8 +49,6 @@ class Context:
         self._initial_mag: npt.NDArray | None = None
         self._max_velocity = 0.0
         self._max_altitude = 0.0
-        
-        
 
         
         
@@ -77,16 +75,18 @@ class Context:
             self._initial_mag = self.data_processor.measurements[-3:]
 
         # runs predict with the calculated dt and control input
-        self.ukf.predict(self.data_processor.dt)
+        control_input = self._flight_state.control_input.copy()
+        self.ukf.predict(self.data_processor.dt, control_input)
         if self._plotter:
             self._plotter.timestamps_pred.append(self._timestamp)
             self._plotter.X_data_pred.append(self.ukf.X.copy())
         self.ukf.R = np.diag(measurement_noise_diag)
 
-        self.ukf.update(self.data_processor.measurements, self._initial_pressure, self._initial_mag)
+        self.ukf.update(self.data_processor.measurements, self._initial_pressure, self._initial_mag, control_input)
         if self._plotter:
             self._plotter.X_data.append(self.ukf.X.copy())
             self._plotter.timestamps.append(self._timestamp)
+            self._plotter.uncerts.append(np.diag(self.ukf.P))
             self._plotter.mahal.append(self.ukf.mahalanobis_dist)
             self._plotter.z_error_score.append(self.ukf.z_error_score)
         

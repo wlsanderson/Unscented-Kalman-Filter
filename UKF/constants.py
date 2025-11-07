@@ -12,8 +12,8 @@ INITIAL_STATE_ESTIMATE = np.array([
     0.0, 0.0, 0.0, # velocity (x, y, z)
     0.0, 0.0, 1.0, # accel (x, y, z)
     0.0, 0.0, 0.0, # gyro (x, y, z)
-    0.0, 0.0, 0.0, # accelerometer offsets (x, y, z)
-    0.0, 0.0, 0.0, # gyro offsets (x, y, z)
+    2.3e-2, -2.8e-2, 4.3e-4, # accelerometer offsets (x, y, z)
+    0.308, 0.0508, 0.0878, # gyro offsets (x, y, z)
     0.11329, 0.68843, -0.13416, 0.70373, # quaternion orientation (w, x, y, z)
     ])
 """State vector initial estimate"""
@@ -22,11 +22,11 @@ INITIAL_STATE_ESTIMATE = np.array([
 INITIAL_STATE_COV = np.diag([
     1e-3, 1e-3, 1e-3, # position (x, y, z)
     1e-3, 1e-3, 1e-3, # velocity (x, y, z)
-    1e-3, 1e-3, 1e-3, # accel (x, y, z)
-    1e-3, 1e-3, 1e-3, # gyro (x, y, z)
+    1e-5, 1e-5, 1e-5, # accel (x, y, z)
+    1e-5, 1e-5, 1e-5, # gyro (x, y, z)
     1e-5, 1e-5, 1e-5, # accelerometer offsets (x, y, z)
     1e-5, 1e-5, 1e-5, # gyro offsets (x, y, z)
-    1e3, 1e3, 1e3, # quaternion orientation (w, x, y, z)
+    1e-3, 1e-3, 1e-3, # quaternion orientation (w, x, y, z)
 ])
 
 class States(Enum):
@@ -72,10 +72,25 @@ MEASUREMENT_FIELDS = [
     "mag_z",
     ]
 
-CONTROL_INPUT_DIM = 0
-CONTROL_INPUT_FIELDS = [
-    
-    ]
+class StateControlInput(Enum):
+    """
+    Enum that represents control inputs for the state transition function for each flight state.
+    """
+    STANDBY = (
+        [0, 0, 0, # position (x, y, z)
+         0, 0, 0, # velocity (x, y, z)
+         0, 0, 0] # gyro (x, y, z)
+         ,)
+    MOTOR_BURN = ([None],)
+    COAST = ([None],)
+    FREEFALL = ([None],)
+    LANDED = ([None],)
+
+    @property
+    def array(self) -> npt.NDArray:
+        """Returns as numpy array and makes immutable"""
+        return np.array(self.value[0])
+
 
 class StateProcessCovariance(Enum):
     """
@@ -83,19 +98,19 @@ class StateProcessCovariance(Enum):
     matrix for each flight state.
     """
     STANDBY = (
-        [1, 1, 1, # position (x, y, z)
-         1, 1, 1, # velocity (x, y, z)
-         0, 0, 0, # acceleration (x, y, z)
+        [0, 0, 0, # position (x, y, z)
+         0, 0, 0, # velocity (x, y, z)
+         1, 1, 1, # acceleration (x, y, z)
          0, 0, 0, # gyro (x, y, z)
          0, 0, 0, # accelerometer offset (x, y, z)
          0, 0, 0, # gyroscope offset (x, y, z)
-         1, 1, 1] # orientation (r, p, y)
+         1e-5, 1e-5, 1e-5] # orientation (r, p, y)
         ,)
     MOTOR_BURN = (
         [1, 1, 1, # position (x, y, z)
          1, 1, 1, # velocity (x, y, z)
-         0, 0, 0, # acceleration (x, y, z)
-         0, 0, 0, # gyro (x, y, z)
+         1, 1, 1, # acceleration (x, y, z)
+         1, 1, 1, # gyro (x, y, z)
          0, 0, 0, # accelerometer offset (x, y, z)
          0, 0, 0, # gyroscope offset (x, y, z)
          1, 1, 1] # orientation (r, p, y)
@@ -137,8 +152,8 @@ class StateProcessCovariance(Enum):
 class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
 
-    STANDBY = ([1, 1, 1, 1, 1, 1, 1, 1, 1, 1],)
-    MOTOR_BURN = ([1e-1, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2, 1e-2],)
+    STANDBY = ([1e1, 1e-1, 1e-1, 1e-1, 1e1, 1e1, 1e1, 1e-2, 1e-2, 1e-2],)
+    MOTOR_BURN = ([1e1, 1e-1, 1e-1, 1e-1, 1e1, 1e1, 1e1, 1, 1, 1],)
     COAST = ([1e-2, 1 ,1, 1],)
     FREEFALL = ([1e-2, 1 ,1, 1],)
     LANDED = ([1e-3, 1 ,1, 1],)   

@@ -1,4 +1,4 @@
-from UKF.constants import GRAVITY, MIN_VEL_FOR_DRAG
+from UKF.constants import GRAVITY
 import numpy as np
 import numpy.typing as npt
 import quaternion as q
@@ -16,6 +16,7 @@ def measurement_function(sigmas, init_pressure, init_mag, X):
     acc_x = acc_vehicle_frame.x/np.sqrt(2) + acc_vehicle_frame.y/np.sqrt(2) + sigmas[12]
     acc_y = -acc_vehicle_frame.x/np.sqrt(2) + acc_vehicle_frame.y/np.sqrt(2) + sigmas[13]
     acc_z = acc_vehicle_frame.z + sigmas[14]
+    
 
     # same process with gyro: rotate to vehicle frame, then rotate 45 degrees
     global_gyro = sigmas[9:12] * (180.0 / np.pi)
@@ -23,13 +24,14 @@ def measurement_function(sigmas, init_pressure, init_mag, X):
     gyro_x = global_gyro.x/np.sqrt(2) + global_gyro.y/np.sqrt(2) + sigmas[15]
     gyro_y = -global_gyro.x/np.sqrt(2) + global_gyro.y/np.sqrt(2) + sigmas[16]
     gyro_z = global_gyro.z + sigmas[17]
+    
 
     initial_mag = init_mag.copy()
     initial_mag[2] = -init_mag[2]
     init_mag_q = q.quaternion(0, *initial_mag)
     mag_body_q = (quat_state * (init_mag_q * quat_state).conjugate()).conjugate()
-    # convert to numpy array
-    mag_measurement = np.array([mag_body_q.x, mag_body_q.y, -mag_body_q.z])
+
+    #time.sleep(0.001)
     return np.array([
         pressure,
         acc_x,
@@ -38,9 +40,9 @@ def measurement_function(sigmas, init_pressure, init_mag, X):
         gyro_x,
         gyro_y,
         gyro_z,
-        mag_measurement[0],
-        mag_measurement[1],
-        mag_measurement[2],
+        mag_body_q.x,
+        mag_body_q.y,
+        -mag_body_q.z,
         ])
 
 
@@ -62,7 +64,7 @@ def state_transition_function(sigmas, dt, u) -> npt.NDArray:
         next_state[0:3] = sigmas[0:3] + sigmas[3:6] * dt
         return next_state
     next_state[0:6] = u[0:6]
-    next_state[6:9] = next_state[6:9] / np.linalg.norm(next_state[6:9])
+    next_state[6:9] /= np.linalg.norm(next_state[6:9])
     next_state[9:12] = u[6:9]
     return next_state
 

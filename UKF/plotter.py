@@ -51,8 +51,8 @@ class Plotter:
         X_pos_sigma[:, :-4] = X_data[:, :-4] + np.square(X_uncerts[:, :-3])
         X_neg_sigma[:, :-4] = X_data[:, :-4] - np.square(X_uncerts[:, :-3])
         X_delta_quat_sigma = np.sum(X_uncerts[:, -3:])
-        X_pos_sigma[:, -4:] = X_data[:, -4:] + X_delta_quat_sigma
-        X_neg_sigma[:, -4:] = X_data[:, -4:] - X_delta_quat_sigma
+        X_pos_sigma[:, -4:] = X_data[:, -4:]
+        X_neg_sigma[:, -4:] = X_data[:, -4:]
 
         app = Dash(__name__)
         fig = go.Figure()

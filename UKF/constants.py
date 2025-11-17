@@ -12,9 +12,10 @@ INITIAL_STATE_ESTIMATE = np.array([
     0.0, 0.0, 0.0, # velocity (x, y, z)
     0.0, 0.0, 1.0, # accel (x, y, z)
     0.0, 0.0, 0.0, # gyro (x, y, z)
-    2.3e-2, -2.8e-2, 4.3e-4, # accelerometer offsets (x, y, z)
-    0.308, 0.0508, 0.0878, # gyro offsets (x, y, z)
+    0, 0, 0, # accelerometer offsets (x, y, z)
+    0, 0, 0, # gyro offsets (x, y, z)
     0.11329, 0.68843, -0.13416, 0.70373, # quaternion orientation (w, x, y, z)
+    #1, 0, 0, 0,
     ])
 """State vector initial estimate"""
 
@@ -22,11 +23,11 @@ INITIAL_STATE_ESTIMATE = np.array([
 INITIAL_STATE_COV = np.diag([
     1e-3, 1e-3, 1e-3, # position (x, y, z)
     1e-3, 1e-3, 1e-3, # velocity (x, y, z)
-    1e-5, 1e-5, 1e-5, # accel (x, y, z)
+    1e-2, 1e-2, 1e-2, # accel (x, y, z)
     1e-5, 1e-5, 1e-5, # gyro (x, y, z)
     1e-5, 1e-5, 1e-5, # accelerometer offsets (x, y, z)
     1e-5, 1e-5, 1e-5, # gyro offsets (x, y, z)
-    1e-3, 1e-3, 1e-3, # quaternion orientation (w, x, y, z)
+    1, 1, 1, # quaternion orientation (w, x, y, z)
 ])
 
 class States(Enum):
@@ -97,15 +98,17 @@ class StateProcessCovariance(Enum):
     Enum that represents process variance scalars on the diagonal of the process noise covariance
     matrix for each flight state.
     """
+
     STANDBY = (
-        [0, 0, 0, # position (x, y, z)
-         0, 0, 0, # velocity (x, y, z)
-         1, 1, 1, # acceleration (x, y, z)
-         0, 0, 0, # gyro (x, y, z)
+        [1e-3, 1e-3, 1e-3, # position (x, y, z)
+         1e-3, 1e-3, 1e-3, # velocity (x, y, z)
+         1e-2, 1e-2, 1e-2, # acceleration (x, y, z)
+         1e-3, 1e-3, 1e-3, # gyro (x, y, z)
          0, 0, 0, # accelerometer offset (x, y, z)
          0, 0, 0, # gyroscope offset (x, y, z)
-         1e-5, 1e-5, 1e-5] # orientation (r, p, y)
+         1, 1, 1] # orientation (r, p, y)
         ,)
+
     MOTOR_BURN = (
         [1, 1, 1, # position (x, y, z)
          1, 1, 1, # velocity (x, y, z)
@@ -156,7 +159,7 @@ class StateMeasurementNoise(Enum):
     MOTOR_BURN = ([1e1, 1e-1, 1e-1, 1e-1, 1e1, 1e1, 1e1, 1, 1, 1],)
     COAST = ([1e-2, 1 ,1, 1],)
     FREEFALL = ([1e-2, 1 ,1, 1],)
-    LANDED = ([1e-3, 1 ,1, 1],)   
+    LANDED = ([1e-3, 1 ,1, 1],)
 
     @property
     def matrix(self) -> npt.NDArray:
@@ -188,6 +191,10 @@ MAG_CAL_SCALE_MATRIX = np.array([
     [0.018460238433189, 1.044313232820982, -0.041935634277478],
     [0.022421305403328, -0.041935634277478, 0.959443156862626],
     ])
+
+# imu calibration
+ACC_CAL_OFFSET = np.array([2.3e-2, -2.8e-2, 4.3e-4])
+GYRO_CAL_OFFSET = np.array([0.308, 0.0508, 0.0878])
 
 # log files
 TIMESTAMP_COL_NAME = "timestamp"

@@ -29,7 +29,6 @@ class Context:
         sigma_points = SigmaPoints(
             # n is the dimension of the state, minus one due to the quaternion representation
             n = STATE_DIM - 1,
-            #n = STATE_DIM,
             alpha = ALPHA,
             beta = BETA,
             kappa = KAPPA,
@@ -50,8 +49,7 @@ class Context:
         self._max_velocity = 0.0
         self._max_altitude = 0.0
 
-        
-        
+
     def initialize_filter_settings(self):
         state_estimate = INITIAL_STATE_ESTIMATE.copy()
         self.ukf.X = state_estimate
@@ -71,7 +69,6 @@ class Context:
             self._initial_pressure = self.data_processor.measurements[0]
 
         if self._initial_mag is None:
-            
             self._initial_mag = self.data_processor.measurements[-3:]
 
         # runs predict with the calculated dt and control input
@@ -95,7 +92,7 @@ class Context:
         self._max_altitude = max(self._max_altitude, self.ukf.X[2])
         self._max_velocity = max(self._max_velocity, self.ukf.X[5])
         self._flight_state.update()
-            
+
     def set_ukf_functions(self): 
         self.ukf.F = self._flight_state.state_transition_function
         self.ukf.Q = self._flight_state.process_covariance_function
@@ -104,5 +101,3 @@ class Context:
         if self._plotter:
             self._plotter.state_times.append(self._timestamp)
         pass
-
-

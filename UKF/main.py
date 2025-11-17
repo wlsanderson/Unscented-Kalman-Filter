@@ -10,7 +10,7 @@ def run():
     launch_log = np.array([Path("launch_data/pressure_sensor_data.csv"), Path("launch_data/imu_data.csv"), Path("launch_data/magnetometer_data.csv")])
 
     min_t = 880
-    max_t = 905
+    max_t = 890
 
 
     plotter = Plotter()

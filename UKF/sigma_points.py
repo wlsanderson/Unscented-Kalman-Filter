@@ -75,8 +75,6 @@ class SigmaPoints:
             sigmas[i+1][self._quat_idx] = quaternion.as_float_array(quat_X * quat_sigma)
             sigmas[self._n+i+1][self._quat_idx] = quaternion.as_float_array(quat_X * quat_sigma.conjugate())
 
-            # sigmas[i+1] = np.add(X, scaled_cholesky_sqrt[:,i])
-            # sigmas[self._n+i+1] = np.subtract(X, scaled_cholesky_sqrt[:, i])
         return sigmas
 
     def num_sigmas(self) -> int:
@@ -102,3 +100,4 @@ class SigmaPoints:
     def _compute_lambda_scaling_parameter(self) -> float:
         """ Computes the scaling parameter lambda for the sigma points. """
         return self._alpha**2 * (self._n + self._kappa) - self._n
+

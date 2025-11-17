@@ -1,6 +1,6 @@
 import pandas as pd
 from pathlib import Path
-from UKF.constants import MEASUREMENT_FIELDS, TIMESTAMP_COL_NAME, MAG_CAL_OFFSET, MAG_CAL_SCALE_MATRIX
+from UKF.constants import MEASUREMENT_FIELDS, TIMESTAMP_COL_NAME, MAG_CAL_OFFSET, MAG_CAL_SCALE_MATRIX, ACC_CAL_OFFSET, GYRO_CAL_OFFSET
 import numpy as np
 
 
@@ -66,6 +66,8 @@ class DataProcessor:
                     mag = (mag - MAG_CAL_OFFSET) @ MAG_CAL_SCALE_MATRIX
                     mag_norm = np.linalg.norm(mag)
                     self.measurements[mag_idx] =  mag / mag_norm
+                    self.measurements[1:4] = self.measurements[1:4] - ACC_CAL_OFFSET
+                    self.measurements[4:7] = self.measurements[4:7] - GYRO_CAL_OFFSET
                     self._last_data = new_data
                     return True
             print("eof")

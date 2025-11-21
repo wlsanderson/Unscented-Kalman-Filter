@@ -68,13 +68,12 @@ class SigmaPoints:
             # to handle the quaternion part, we convert the rotation vector to a quaternion
             # and apply it to the mean quaternion via quaternion multiplication.
             rotvec_sqrt = scaled_cholesky_sqrt[:, i][self._rotvec_idx]
-            quat_sigma = quaternion.from_rotation_vector(rotvec_sqrt).normalized()
-            quat_X = quaternion.from_float_array(X[self._quat_idx]).normalized()
+            quat_sigma = quaternion.from_rotation_vector(rotvec_sqrt)
+            quat_X = quaternion.from_float_array(X[self._quat_idx])
             # instead of adding/subtracting, we multiply quaternions to "add", and multiply by
             # the conjucate to "subtract".
             sigmas[i+1][self._quat_idx] = quaternion.as_float_array(quat_X * quat_sigma)
             sigmas[self._n+i+1][self._quat_idx] = quaternion.as_float_array(quat_X * quat_sigma.conjugate())
-
         return sigmas
 
     def num_sigmas(self) -> int:

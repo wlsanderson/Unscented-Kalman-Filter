@@ -7,6 +7,7 @@ from UKF.plotter import Plotter
 from UKF.state import State, StandbyState
 import numpy as np
 import numpy.typing as npt
+import quaternion as q
 
 class Context:
 
@@ -20,6 +21,7 @@ class Context:
         "_timestamp",
         "_initial_pressure",
         "_initial_mag",
+        "_initial_quat",
         "_max_altitude",
         "_max_velocity",
         "measurement",
@@ -46,6 +48,7 @@ class Context:
         self.shutdown_requested: bool = False
         self._initial_pressure: np.float64 | None = None
         self._initial_mag: npt.NDArray | None = None
+        self._initial_quat: npt.NDArray | None = None
         self._max_velocity = 0.0
         self._max_altitude = 0.0
 
@@ -70,6 +73,12 @@ class Context:
 
         if self._initial_mag is None:
             self._initial_mag = self.data_processor.measurements[-3:]
+        
+        if self._initial_quat is None:
+            acc = self.data_processor.measurements[1:4]
+            mag = self.data_processor.measurements[-3:]
+            self._initial_quat = self.calculate_initial_orientation(acc, mag)
+            self.ukf.X[18:22] = self._initial_quat
 
         # runs predict with the calculated dt and control input
         control_input = self._flight_state.control_input.copy()
@@ -79,7 +88,7 @@ class Context:
             self._plotter.X_data_pred.append(self.ukf.X.copy())
         self.ukf.R = np.diag(measurement_noise_diag)
 
-        self.ukf.update(self.data_processor.measurements, self._initial_pressure, self._initial_mag, control_input)
+        self.ukf.update(self.data_processor.measurements, self._initial_pressure, self._initial_mag, self._initial_quat, control_input)
         if self._plotter:
             self._plotter.X_data.append(self.ukf.X.copy())
             self._plotter.timestamps.append(self._timestamp)
@@ -101,3 +110,50 @@ class Context:
         if self._plotter:
             self._plotter.state_times.append(self._timestamp)
         pass
+
+    def calculate_initial_orientation(self, acc, mag):
+
+        # -------- 1) Undo the board’s 45° mounting rotation --------
+        # Your check code APPLIES:
+        #   x' =  x/√2 + y/√2
+        #   y' = -x/√2 + y/√2
+        # So to go from *sensor* frame → true vehicle frame, we must apply the inverse:
+        R45 = np.array([[ 1/np.sqrt(2), -1/np.sqrt(2), 0],
+                        [ 1/np.sqrt(2),  1/np.sqrt(2), 0],
+                        [ 0,              0,            1]])
+
+        acc = R45 @ acc
+        mag = R45 @ mag
+
+        # -------- 2) Normalize sensors --------
+        acc = acc / np.linalg.norm(acc)
+        mag = mag / np.linalg.norm(mag)
+
+        # -------- 3) Compute roll, pitch from accelerometer --------
+        # ENU convention matching numpy.quaternion
+        roll  = np.arctan2(acc[1], acc[2])
+        pitch = np.arctan2(-acc[0], np.sqrt(acc[1]**2 + acc[2]**2))
+
+        # -------- 4) Tilt-compensated yaw from magnetometer --------
+        cr = np.cos(roll);  sr = np.sin(roll)
+        cp = np.cos(pitch); sp = np.sin(pitch)
+
+        mx, my, mz = mag
+
+        mag_x = mx*cp + mz*sp
+        mag_y = mx*sr*sp + my*cr - mz*sr*cp
+
+        yaw = np.arctan2(-mag_y, mag_x)
+
+        # -------- 5) Convert Euler→quaternion (ENU, intrinsic xyz) --------
+        cy = np.cos(yaw/2);  sy = np.sin(yaw/2)
+        cp = np.cos(pitch/2); sp = np.sin(pitch/2)
+        cr = np.cos(roll/2);  sr = np.sin(roll/2)
+
+        qw = cr*cp*cy + sr*sp*sy
+        qx = sr*cp*cy - cr*sp*sy
+        qy = cr*sp*cy + sr*cp*sy
+        qz = cr*cp*sy - sr*sp*cy
+
+        # numpy.quaternion expects quaternion(w, x, y, z)
+        return np.array([qw, qx, qy, qz])

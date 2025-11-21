@@ -1,9 +1,7 @@
-from UKF.data_processor import DataProcessor
-from pathlib import Path
 import numpy as np
+import quaternion as q
 
-launch_log = np.array([Path("launch_data/pressure_sensor_data.csv"), Path("launch_data/imu_data.csv"), Path("launch_data/magnetometer_data.csv")])
-min_t = 0
-max_t = 5
-data_processor = DataProcessor(bmp_data = launch_log[0], imu_data = launch_log[1], mag_data = launch_log[2], min_t=min_t, max_t=max_t)
-data_processor.fetch()
+a = np.array([1.0, 2.0, 3.0], dtype=np.float64)
+a = a / np.linalg.norm(a)
+
+print(q.from_rotation_vector(a))

@@ -14,8 +14,8 @@ INITIAL_STATE_ESTIMATE = np.array([
     0.0, 0.0, 0.0, # gyro (x, y, z)
     0, 0, 0, # accelerometer offsets (x, y, z)
     0, 0, 0, # gyro offsets (x, y, z)
-    0.11329, 0.68843, -0.13416, 0.70373, # quaternion orientation (w, x, y, z)
-    #1, 0, 0, 0,
+    #0.11329, 0.68843, -0.13416, 0.70373, # quaternion orientation (w, x, y, z)
+    1, 0, 0, 0,
     ])
 """State vector initial estimate"""
 
@@ -23,11 +23,11 @@ INITIAL_STATE_ESTIMATE = np.array([
 INITIAL_STATE_COV = np.diag([
     1e-3, 1e-3, 1e-3, # position (x, y, z)
     1e-3, 1e-3, 1e-3, # velocity (x, y, z)
-    1e-2, 1e-2, 1e-2, # accel (x, y, z)
+    1e-3, 1e-3, 1e-3, # accel (x, y, z)
     1e-5, 1e-5, 1e-5, # gyro (x, y, z)
-    1e-5, 1e-5, 1e-5, # accelerometer offsets (x, y, z)
-    1e-5, 1e-5, 1e-5, # gyro offsets (x, y, z)
-    1, 1, 1, # quaternion orientation (w, x, y, z)
+    1e-6, 1e-6, 1e-6, # accelerometer offsets (x, y, z)
+    1e-6, 1e-6, 1e-6, # gyro offsets (x, y, z)
+    1e-1, 1e-1, 1e-1, # quaternion orientation (w, x, y, z)
 ])
 
 class States(Enum):
@@ -102,7 +102,7 @@ class StateProcessCovariance(Enum):
     STANDBY = (
         [1e-3, 1e-3, 1e-3, # position (x, y, z)
          1e-3, 1e-3, 1e-3, # velocity (x, y, z)
-         1e-2, 1e-2, 1e-2, # acceleration (x, y, z)
+         1e-3, 1e-3, 1e-3, # acceleration (x, y, z)
          1e-3, 1e-3, 1e-3, # gyro (x, y, z)
          0, 0, 0, # accelerometer offset (x, y, z)
          0, 0, 0, # gyroscope offset (x, y, z)
@@ -110,8 +110,8 @@ class StateProcessCovariance(Enum):
         ,)
 
     MOTOR_BURN = (
-        [1, 1, 1, # position (x, y, z)
-         1, 1, 1, # velocity (x, y, z)
+        [1e-3, 1e-3, 1e-3, # position (x, y, z)
+         1e-2, 1e-2, 1e-2, # velocity (x, y, z)
          1, 1, 1, # acceleration (x, y, z)
          1, 1, 1, # gyro (x, y, z)
          0, 0, 0, # accelerometer offset (x, y, z)
@@ -119,31 +119,31 @@ class StateProcessCovariance(Enum):
          1, 1, 1] # orientation (r, p, y)
         ,)
     COAST = (
-        [1, 1, 1, # position (x, y, z)
-         1, 1, 1, # velocity (x, y, z)
-         0, 0, 0, # acceleration (x, y, z)
-         0, 0, 0, # gyro (x, y, z)
+        [1e-4, 1e-4, 1e-4, # position (x, y, z)
+         1e-4, 1e-4, 1e-4, # velocity (x, y, z)
+         1e-1, 1e-1, 1e-1, # acceleration (x, y, z)
+         1, 1, 1, # gyro (x, y, z)
          0, 0, 0, # accelerometer offset (x, y, z)
          0, 0, 0, # gyroscope offset (x, y, z)
          1, 1, 1] # orientation (r, p, y)
         ,)
     FREEFALL = (
-        [1, 1, 1, # position (x, y, z)
+        [1e-1, 1e-1, 1e-1, # position (x, y, z)
          1, 1, 1, # velocity (x, y, z)
-         0, 0, 0, # acceleration (x, y, z)
-         0, 0, 0, # gyro (x, y, z)
+         1, 1, 1, # acceleration (x, y, z)
+         1, 1, 1, # gyro (x, y, z)
          0, 0, 0, # accelerometer offset (x, y, z)
          0, 0, 0, # gyroscope offset (x, y, z)
-         1, 1, 1] # orientation (r, p, y)
+         1e1, 1e1, 1e1] # orientation (r, p, y)
         ,)
     LANDED = (
         [1, 1, 1, # position (x, y, z)
          1, 1, 1, # velocity (x, y, z)
-         0, 0, 0, # acceleration (x, y, z)
-         0, 0, 0, # gyro (x, y, z)
+         1e-3, 1e-3, 1e-3, # acceleration (x, y, z)
+         1e-2, 1e-2, 1e-2, # gyro (x, y, z)
          0, 0, 0, # accelerometer offset (x, y, z)
          0, 0, 0, # gyroscope offset (x, y, z)
-         1, 1, 1] # orientation (r, p, y)
+         1e-2, 1e-2, 1e-2] # orientation (r, p, y)
         ,)
 
     @property
@@ -155,11 +155,11 @@ class StateProcessCovariance(Enum):
 class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
 
-    STANDBY = ([1e1, 1e-1, 1e-1, 1e-1, 1e1, 1e1, 1e1, 1e-2, 1e-2, 1e-2],)
-    MOTOR_BURN = ([1e1, 1e-1, 1e-1, 1e-1, 1e1, 1e1, 1e1, 1, 1, 1],)
-    COAST = ([1e-2, 1 ,1, 1],)
-    FREEFALL = ([1e-2, 1 ,1, 1],)
-    LANDED = ([1e-3, 1 ,1, 1],)
+    STANDBY = ([1e1, 1e-2, 1e-2, 1e-2, 1e1, 1e1, 1e1, 1e-2, 1e-2, 1e-2],)
+    MOTOR_BURN = ([1e3, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1],)
+    COAST = ([1e5, 1e-1, 1e-1, 1e-1, 1e-2, 1e-2, 1e-2, 1e-1, 1e-1, 1e-1],)
+    FREEFALL = ([1e3, 1e-1, 1e-1, 1e-1, 1, 1, 1, 1, 1, 1],)
+    LANDED = ([1e1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1],)
 
     @property
     def matrix(self) -> npt.NDArray:

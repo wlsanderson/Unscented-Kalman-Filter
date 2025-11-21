@@ -9,8 +9,8 @@ import numpy as np
 def run():
     launch_log = np.array([Path("launch_data/pressure_sensor_data.csv"), Path("launch_data/imu_data.csv"), Path("launch_data/magnetometer_data.csv")])
 
-    min_t = 880
-    max_t = 890
+    min_t = 910
+    max_t = 1000
 
 
     plotter = Plotter()

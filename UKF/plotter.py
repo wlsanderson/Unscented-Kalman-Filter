@@ -46,13 +46,15 @@ class Plotter:
         mahal = np.array(self.mahal, dtype=np.float64) if self.mahal else None
         z_error_score = np.array(self.z_error_score, dtype=np.float64) if self.z_error_score else None
 
-        X_pos_sigma = np.zeros(X_data.shape)
-        X_neg_sigma = np.zeros(X_data.shape)
-        X_pos_sigma[:, :-4] = X_data[:, :-4] + np.square(X_uncerts[:, :-3])
-        X_neg_sigma[:, :-4] = X_data[:, :-4] - np.square(X_uncerts[:, :-3])
-        X_delta_quat_sigma = np.sum(X_uncerts[:, -3:])
-        X_pos_sigma[:, -4:] = X_data[:, -4:]
-        X_neg_sigma[:, -4:] = X_data[:, -4:]
+        if X_uncerts is not None:
+            X_pos_sigma = np.zeros(X_data.shape)
+            X_neg_sigma = np.zeros(X_data.shape)
+            X_pos_sigma[:, :-4] = X_data[:, :-4] + np.square(X_uncerts[:, :-3])
+            X_neg_sigma[:, :-4] = X_data[:, :-4] - np.square(X_uncerts[:, :-3])
+            X_delta_quat_sigma = np.sum(X_uncerts[:, -3:], axis=1)
+            X_pos_sigma[:, -4:] = np.add(X_data[:, -4:], np.square(X_delta_quat_sigma)[:, np.newaxis])
+            X_neg_sigma[:, -4:] = np.subtract(X_data[:, -4:], np.square(X_delta_quat_sigma)[:, np.newaxis])
+        
 
         app = Dash(__name__)
         fig = go.Figure()

@@ -91,7 +91,7 @@ class State(ABC):
         """
 
     @abstractmethod
-    def measurement_function(self, sigmas, init_pressure, init_mag, X):
+    def measurement_function(self, sigmas, init_pressure, init_mag, init_quat, X):
         """
         Measurement function for Unscented Kalman Filter
         """
@@ -145,8 +145,8 @@ class StandbyState(State):
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
     
-    def measurement_function(self, sigmas, init_pressure, init_mag, X):
-        return measurement_function(sigmas, init_pressure, init_mag, X)    
+    def measurement_function(self, sigmas, init_pressure, init_mag, init_quat, X):
+        return measurement_function(sigmas, init_pressure, init_mag, init_quat, X)    
 
 
 
@@ -183,9 +183,7 @@ class MotorBurnState(State):
         # accelerating. This is the same thing as checking if our accel sign has flipped
         # We make sure that it is not just a temporary fluctuation by checking if the velocity is a
         # bit less than the max velocity
-        if (self.context.ukf.X[5] < self.context._max_velocity * MAX_VELOCITY_THRESHOLD) and (
-            self.context._max_velocity > 200000
-        ):
+        if self.context.ukf.X[5] < self.context._max_velocity * MAX_VELOCITY_THRESHOLD:
             self.next_state()
             return
 
@@ -195,8 +193,8 @@ class MotorBurnState(State):
 
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
-    def measurement_function(self, sigmas, init_pressure, init_mag, X):
-        return measurement_function(sigmas, init_pressure, init_mag, X)    
+    def measurement_function(self, sigmas, init_pressure, init_mag, init_quat, X):
+        return measurement_function(sigmas, init_pressure, init_mag, init_quat, X)    
 
 
 class CoastState(State):
@@ -209,7 +207,6 @@ class CoastState(State):
     @property
     def qvar(self) -> np.float64:
         return StateProcessCovariance.COAST.array
-
     
     @property
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
@@ -240,8 +237,8 @@ class CoastState(State):
 
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
-    def measurement_function(self, sigmas, init_pressure, init_mag, X):
-        return measurement_function(sigmas, init_pressure, init_mag, X)    
+    def measurement_function(self, sigmas, init_pressure, init_mag, init_quat, X):
+        return measurement_function(sigmas, init_pressure, init_mag, init_quat, X)    
 
 
 class FreeFallState(State):
@@ -273,7 +270,7 @@ class FreeFallState(State):
         # If our altitude is around 0, and we have an acceleration spike, we have landed
         if (
             self.context.ukf.X[2] <= GROUND_ALTITUDE_METERS
-            and -self.context.measurement[4] >= LANDED_ACCELERATION_GS
+            and -self.context.data_processor.measurements[4] >= LANDED_ACCELERATION_GS
         ):
             self.next_state()
 
@@ -284,8 +281,8 @@ class FreeFallState(State):
 
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
-    def measurement_function(self, sigmas, init_pressure, init_mag, X):
-        return measurement_function(sigmas, init_pressure, init_mag, X)    
+    def measurement_function(self, sigmas, init_pressure, init_mag, init_quat, X):
+        return measurement_function(sigmas, init_pressure, init_mag, init_quat, X)    
 
 
 class LandedState(State):
@@ -319,5 +316,5 @@ class LandedState(State):
 
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
-    def measurement_function(self, sigmas, init_pressure, init_mag, X):
-        return measurement_function(sigmas, init_pressure, init_mag, X)    
+    def measurement_function(self, sigmas, init_pressure, init_mag, init_quat, X):
+        return measurement_function(sigmas, init_pressure, init_mag, init_quat, X)    

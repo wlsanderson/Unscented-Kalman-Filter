@@ -3,6 +3,7 @@ import numpy.typing as npt
 
 from UKF.sigma_points import SigmaPoints
 import quaternion as q
+import time
 
 
 class UKF:
@@ -66,10 +67,10 @@ class UKF:
             u = u,
         )
 
-    def update(self, z, init_pressure, init_mag, u):
+    def update(self, z, init_pressure, init_mag, init_quat, u):
         sigmas_h = []
         for s in self._sigmas_f:
-            sigmas_h.append(self.H(s, init_pressure, init_mag, self.X))
+            sigmas_h.append(self.H(s, init_pressure, init_mag, init_quat, self.X))
         self._sigmas_h = np.array(sigmas_h)
         pred_z, innovation_cov = self._unscented_transform_H(
             self._sigmas_h,
@@ -98,11 +99,7 @@ class UKF:
         new_P = self.P - np.dot(np.dot(kalman_gain, innovation_cov), np.transpose(kalman_gain))
         self.P = new_P
 
-        # self.diag_ukf(self.P, P_cross_covariance, innovation_cov, self.R, kalman_gain,
-        #     self._sigmas_h, self.pred_z, self._sigmas_f, self.X,
-        #     self._sigma_points_class.Wm, self._sigma_points_class.Wc)
-        #raise Exception
-        #self.P = eigvecs @ np.diag(eigvals) @ eigvecs.T
+        
         
 
     def _unscented_transform_F(self, sigmas: npt.NDArray[np.float64], Wm, Wc, X, u = None, noise_cov = None):
@@ -123,16 +120,12 @@ class UKF:
         # mean delta rotation vector is transformed back into a mean delta quaternion and
         # multiplied into the state to get the quaternion prediction
         mean_delta_quat = q.from_rotation_vector(mean_delta_rotvec)
-        mean_quat = q.as_float_array((mean_delta_quat * quat_state).normalized())
+        mean_quat = q.as_float_array((mean_delta_quat * quat_state))
         
         # the vector portion of the sigma points are calculated normally
         vector_mean = np.dot(Wm, vector_sigmas)
-        
         # if there is a control input, then its either standby state or landed state.
         # ideally, this should be handled by checking the flight state.
-        # if u[0] is not None:
-        #     # in standby or landed, acceleration is normalized because there is no movement.
-        #     vector_mean[6:9] /= np.linalg.norm(vector_mean[6:9])
         x_mean = np.concatenate([vector_mean, mean_quat])
 
         vec_residual = vector_sigmas - vector_mean[np.newaxis, :]
@@ -153,6 +146,8 @@ class UKF:
         return (x_mean, P_covariance)
 
     def compute_process_sigmas(self, dt, Q, u):
+        # normalize quaternion states
+        self.X[self._quat_idx] /= np.linalg.norm(self.X[self._quat_idx])
         sigmas = self._sigma_points_class.calculate_sigma_points(self.X, self.P, Q)
         for i, s in enumerate(sigmas):
             self._sigmas_f[i] = self.F(s, dt, u)
@@ -174,61 +169,3 @@ class UKF:
             dz = np.subtract(self._sigmas_h[i], z)
             P_cross_cov += self._sigma_points_class.Wc[i] * np.outer(dx, dz)
         return P_cross_cov
-
-
-
-    def diag_ukf(self, P, Pxz, S, R, K, sigmas_h, pred_z, sigmas_f, x_state, Wm, Wc):
-        # Basic shapes
-        print("shapes: P, Pxz, S, R, K =",
-            P.shape, Pxz.shape, S.shape, R.shape, K.shape)
-
-        # symmetry
-        print("symmetry: P~P.T?", np.allclose(P, P.T, atol=1e-12))
-        print("symmetry: S~S.T?", np.allclose(S, S.T, atol=1e-12))
-
-        # eigenvalues
-        eigP = np.linalg.eigvalsh(P)
-        eigS = np.linalg.eigvalsh(S)
-        print("eig(P) min/ max:", eigP.min(), eigP.max())
-        print("eig(S) min/ max:", eigS.min(), eigS.max())
-
-        # check S includes R
-        S_minus_R = S - R
-        eigSminusR = np.linalg.eigvalsh(0.5*(S_minus_R + S_minus_R.T))
-        print("eig(S-R) min:", eigSminusR.min())
-
-        # magnitude comparison
-        KS = K @ S @ K.T
-        print("||K S K.T||_inf:", np.linalg.norm(KS, ord=np.inf),
-            "||P||_inf:", np.linalg.norm(P, ord=np.inf))
-
-        # Test using solve rather than inv
-        K_solve = Pxz @ np.linalg.solve(S, np.eye(S.shape[0]))
-        print("K vs K_solve sup norm:", np.linalg.norm(K - K_solve, ord=np.inf))
-
-        # Recompute S from sigmas_h to verify
-        x_mean = np.dot(Wm, sigmas_h)
-        residuals = sigmas_h - x_mean[np.newaxis, :]
-        S_recomp = (residuals.T * Wc) @ residuals
-        S_recomp += R
-        S_recomp = 0.5*(S_recomp + S_recomp.T)
-        print("||S - S_recomp||_inf:", np.linalg.norm(S - S_recomp, ord=np.inf))
-        print("eig(S_recomp) min:", np.linalg.eigvalsh(S_recomp).min())
-
-        # Check Pxz recomputation with your state's sigma points and z
-        # Make sure x residuals are built in the SAME order as you use elsewhere:
-        #   dx = [rotvec (3), linear parts...]
-        quat_mean = q.from_float_array(x_state[self._quat_idx])
-        dx_list = []
-        for i in range(sigmas_f.shape[0]):
-            dx_vec = sigmas_f[i][self._vec_idx] - x_state[self._vec_idx]
-            dq = q.from_float_array(sigmas_f[i][self._quat_idx]) * quat_mean.conjugate()
-            dx_rot = q.as_rotation_vector(dq)
-            dx = np.concatenate((dx_vec, dx_rot))
-            dx_list.append(dx)
-        dxs = np.array(dx_list)
-        Pxz_recomp = (dxs.T * Wc) @ (sigmas_h - x_mean[np.newaxis,:])
-        print("||Pxz - Pxz_recomp||_inf:", np.linalg.norm(Pxz - Pxz_recomp, ord=np.inf))
-
-        return dict(eigP=eigP, eigS=eigS, S_recomp=S_recomp, Pxz_recomp=Pxz_recomp)
-    

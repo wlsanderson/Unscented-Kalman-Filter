@@ -127,7 +127,6 @@ class UKF:
         # if there is a control input, then its either standby state or landed state.
         # ideally, this should be handled by checking the flight state.
         x_mean = np.concatenate([vector_mean, mean_quat])
-
         vec_residual = vector_sigmas - vector_mean[np.newaxis, :]
         full_residuals = np.hstack((vec_residual, delta_rotvecs))
         P_covariance = (full_residuals.T * Wc) @  full_residuals
@@ -140,7 +139,6 @@ class UKF:
         x_mean = np.dot(Wm, sigmas)
         residual = sigmas - x_mean[np.newaxis, :]
         P_covariance = np.dot(residual.T, np.dot(np.diag(Wc), residual))
-
         if noise_cov is not None:
             P_covariance += noise_cov
         return (x_mean, P_covariance)

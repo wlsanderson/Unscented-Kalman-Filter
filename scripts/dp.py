@@ -1,7 +1,5 @@
 import numpy as np
-import quaternion as q
 
-a = np.array([1.0, 2.0, 3.0], dtype=np.float64)
-a = a / np.linalg.norm(a)
-
-print(q.from_rotation_vector(a))
+a = np.array([15, 19, 12])
+if np.any(a > 19):
+    print("true")

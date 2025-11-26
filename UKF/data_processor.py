@@ -1,6 +1,6 @@
 import pandas as pd
 from pathlib import Path
-from UKF.constants import MEASUREMENT_FIELDS, TIMESTAMP_COL_NAME, MAG_CAL_OFFSET, MAG_CAL_SCALE_MATRIX, ACC_CAL_OFFSET, GYRO_CAL_OFFSET
+from UKF.constants import MEASUREMENT_FIELDS, TIMESTAMP_COL_NAME
 import numpy as np
 
 
@@ -14,9 +14,14 @@ class DataProcessor:
         "inputs",
         "_last_data",
         "_min_t",
+        "acc_cal_offset",
+        "gyro_cal_offset",
+        "mag_cal_offset",
+        "mag_cal_scale",
     )
 
-    def __init__(self, bmp_data: Path, imu_data: Path, mag_data: Path, min_t = None, max_t = None):
+    def __init__(self, bmp_data: Path, imu_data: Path, mag_data: Path, min_t = None, max_t = None,
+                 acc_cal_offset=None, gyro_cal_offset=None, mag_cal_offset=None, mag_cal_scale=None):
         bmp_df = self.get_sensor_df(bmp_data)
         imu_df = self.get_sensor_df(imu_data)
         mag_df = self.get_sensor_df(mag_data)
@@ -32,6 +37,11 @@ class DataProcessor:
             self._df = self._df.loc[self._df['timestamp'] > min_t]
         self._iterator = self._df.itertuples(index=False, name=None)
         self._last_data = np.full(len(MEASUREMENT_FIELDS) + 1, None, dtype=object)
+        # calibration values (defaults if not provided)
+        self.acc_cal_offset = np.array(acc_cal_offset) if acc_cal_offset is not None else np.zeros(3)
+        self.gyro_cal_offset = np.array(gyro_cal_offset) if gyro_cal_offset is not None else np.zeros(3)
+        self.mag_cal_offset = np.array(mag_cal_offset) if mag_cal_offset is not None else np.zeros(3)
+        self.mag_cal_scale = np.array(mag_cal_scale) if mag_cal_scale is not None else np.identity(3)
 
 
     def fetch(self):
@@ -63,11 +73,13 @@ class DataProcessor:
                     mag_idx = slice(n_meas - 3, n_meas)
                     mag = self.measurements[mag_idx]
                     # calibrate
-                    mag = (mag - MAG_CAL_OFFSET) @ MAG_CAL_SCALE_MATRIX
+                    mag = (mag - self.mag_cal_offset) @ self.mag_cal_scale
                     mag_norm = np.linalg.norm(mag)
                     self.measurements[mag_idx] =  mag / mag_norm
-                    self.measurements[1:4] = self.measurements[1:4] - ACC_CAL_OFFSET
-                    self.measurements[4:7] = self.measurements[4:7] - GYRO_CAL_OFFSET
+                    # print("meas")
+                    # print(self.measurements[mag_idx])
+                    self.measurements[1:4] = self.measurements[1:4] - self.acc_cal_offset
+                    self.measurements[4:7] = self.measurements[4:7] - self.gyro_cal_offset
                     self._last_data = new_data
                     return True
             print("eof")

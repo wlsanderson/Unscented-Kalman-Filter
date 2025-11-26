@@ -134,7 +134,7 @@ class StandbyState(State):
         """
 
         # If the velocity of the rocket is above a threshold, the rocket has launched.
-        if self.context.data_processor.measurements[1] > TAKEOFF_ACCELERATION_GS:
+        if np.abs(self.context.ukf.mahalanobis_dist) > 30:
             self.next_state()
             return
 
@@ -156,15 +156,29 @@ class MotorBurnState(State):
     When the motor is burning and the rocket is accelerating.
     """
 
-    __slots__ = ()
+    __slots__ = (
+    )
 
     @property
     def qvar(self) -> np.float64:
-        return StateProcessCovariance.MOTOR_BURN.array
+        noise = StateProcessCovariance.MOTOR_BURN.array
+        if np.any(np.abs(self.context.data_processor.measurements[1:4]) > 19):
+            noise[6:9] *= 1
+        return noise
     
     @property
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
-        return StateMeasurementNoise.MOTOR_BURN.matrix
+        noise = StateMeasurementNoise.MOTOR_BURN.matrix
+        if np.abs(self.context.data_processor.measurements[1]) > 19:
+            noise[1] *= 1e3
+        if np.abs(self.context.data_processor.measurements[2]) > 19:
+            noise[2] *= 1e3
+        if np.abs(self.context.data_processor.measurements[3]) > 19:
+            noise[3] *= 1e3
+
+        # an attempt to filter transonic effects
+        noise[0] *= max(self.context.ukf.X[5], 1)
+        return noise
 
     @property
     def control_input(self) -> npt.NDArray[np.float64]:
@@ -183,7 +197,7 @@ class MotorBurnState(State):
         # accelerating. This is the same thing as checking if our accel sign has flipped
         # We make sure that it is not just a temporary fluctuation by checking if the velocity is a
         # bit less than the max velocity
-        if self.context.ukf.X[5] < self.context._max_velocity * MAX_VELOCITY_THRESHOLD:
+        if self.context.ukf.X[5] < self.context._max_velocity * MAX_VELOCITY_THRESHOLD and self.context._max_velocity > 20 and self.context.ukf.X[8] < 5:
             self.next_state()
             return
 
@@ -202,15 +216,21 @@ class CoastState(State):
     When the motor has burned out and the rocket is coasting to apogee.
     """
 
-    __slots__ = ()
+    __slots__ = (
+        "pressure_uncertainty"
+    )
 
     @property
     def qvar(self) -> np.float64:
-        return StateProcessCovariance.COAST.array
+        noise = StateProcessCovariance.COAST.array
+        return noise
     
     @property
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
-        return StateMeasurementNoise.COAST.matrix
+        noise = StateMeasurementNoise.COAST.matrix
+        
+        noise[0] *= max(self.context.ukf.X[5], 1)
+        return noise
 
     @property
     def control_input(self) -> npt.NDArray[np.float64]:
@@ -218,12 +238,11 @@ class CoastState(State):
 
     def __init__(self, context: "Context"):
         super().__init__(context)
+        self.pressure_uncertainty = 1
 
     def update(self):
         """Checks to see if the rocket has reached apogee, indicating the start of free fall."""
 
-        # If our velocity is less than 0 and our altitude is less than 96% of our max altitude, we
-        # are in free fall.
         if (
             self.context.ukf.X[5] <= 0
             and self.context.ukf.X[2] <= self.context._max_altitude * MAX_ALTITUDE_THRESHOLD
@@ -248,7 +267,12 @@ class FreeFallState(State):
 
     @property
     def qvar(self) -> np.float64:
-        return StateProcessCovariance.FREEFALL.array
+        process_noise = StateProcessCovariance.FREEFALL.array
+        # start lowering certainty in acceleration and gyro predictions the closer the rocket
+        # gets to landing, because hitting the ground throws off expected values
+        if self.context.ukf.X[2] < 100:
+            process_noise[6:12] *= (101 - self.context.ukf.X[2])**1.5
+        return process_noise
     
     @property
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:

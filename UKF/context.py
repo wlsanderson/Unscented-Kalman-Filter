@@ -71,14 +71,12 @@ class Context:
         if self._initial_pressure is None:
             self._initial_pressure = self.data_processor.measurements[0]
 
-        if self._initial_mag is None:
-            self._initial_mag = self.data_processor.measurements[-3:]
         
         if self._initial_quat is None:
             acc = self.data_processor.measurements[1:4]
             mag = self.data_processor.measurements[-3:]
-            self._initial_quat = self.calculate_initial_orientation(acc, mag)
-            self.ukf.X[18:22] = self._initial_quat
+            self._initial_quat, self._initial_mag = self.calculate_initial_orientation_from_sensors(acc, mag)
+            self.ukf.X[18:22] = q.as_float_array(self._initial_quat)
 
         # runs predict with the calculated dt and control input
         control_input = self._flight_state.control_input.copy()
@@ -111,49 +109,73 @@ class Context:
             self._plotter.state_times.append(self._timestamp)
         pass
 
-    def calculate_initial_orientation(self, acc, mag):
+    def calculate_initial_orientation_from_sensors(self, acc_imu_raw, mag_raw):
+        """
+        Compute an initial quaternion (vehicle -> world) given raw imu accel and raw magnetometer.
+        Both inputs are 3-element arrays in their respective sensor frames:
+        - acc_imu_raw : accelerometer reading in IMU (acc+gyro) frame
+        - mag_raw     : magnetometer reading in magnetometer sensor frame
 
-        # -------- 1) Undo the board’s 45° mounting rotation --------
-        # Your check code APPLIES:
-        #   x' =  x/√2 + y/√2
-        #   y' = -x/√2 + y/√2
-        # So to go from *sensor* frame → true vehicle frame, we must apply the inverse:
-        R45 = np.array([[ 1/np.sqrt(2), -1/np.sqrt(2), 0],
-                        [ 1/np.sqrt(2),  1/np.sqrt(2), 0],
-                        [ 0,              0,            1]])
+        Returns:
+        - init_quat : numpy-quaternion q object that maps VEHICLE -> WORLD (q: vehicle->world)
+        - mag_world : 3-element numpy array of the magnetic field expressed in WORLD frame (normalized)
+        Notes:
+        - world +Z is UP.
+        - The accelerometer at rest should measure the 'up' direction (specific force),
+            so a level vehicle -> acc_vehicle ≈ [0,0,1] (after normalization).
+        """
+        vehicle_to_imu = np.array([
+            [ 1.0/np.sqrt(2),  1.0/np.sqrt(2), 0.0],
+            [-1.0/np.sqrt(2),  1.0/np.sqrt(2), 0.0],
+            [ 0.0,      0.0,     1.0]
+        ])
+        imu_to_vehicle = vehicle_to_imu.T
+        R_mag_to_vehicle = np.diag([1.0, 1.0, -1.0])
 
-        acc = R45 @ acc
-        mag = R45 @ mag
+        # 1) Transform raw sensor vectors into VEHICLE frame using fixed, known transforms
+        acc_vehicle = imu_to_vehicle @ np.asarray(acc_imu_raw, dtype=float)
+        mag_vehicle = R_mag_to_vehicle @ np.asarray(mag_raw, dtype=float)
 
-        # -------- 2) Normalize sensors --------
-        acc = acc / np.linalg.norm(acc)
-        mag = mag / np.linalg.norm(mag)
+        # 2) Normalize (we only care about direction for attitude initialization)
+        if np.linalg.norm(acc_vehicle) == 0 or np.linalg.norm(mag_vehicle) == 0:
+            raise ValueError("Zero-length sensor vector passed to initialization")
 
-        # -------- 3) Compute roll, pitch from accelerometer --------
-        # ENU convention matching numpy.quaternion
-        roll  = np.arctan2(acc[1], acc[2])
-        pitch = np.arctan2(-acc[0], np.sqrt(acc[1]**2 + acc[2]**2))
+        acc_v = acc_vehicle / np.linalg.norm(acc_vehicle)
+        mag_v = mag_vehicle / np.linalg.norm(mag_vehicle)
 
-        # -------- 4) Tilt-compensated yaw from magnetometer --------
-        cr = np.cos(roll);  sr = np.sin(roll)
-        cp = np.cos(pitch); sp = np.sin(pitch)
+        # 3) Compute roll/pitch from accelerometer (assumes acc measures specific force ≈ +up)
+        # These formulas give roll=0,pitch=0 when acc = [0,0,1]
+        ax, ay, az = acc_v
+        roll  = np.arctan2(ay, az)
+        pitch = np.arctan2(-ax, np.sqrt(ay*ay + az*az))
 
-        mx, my, mz = mag
+        # 4) Level the magnetometer reading (rotate mag into level frame using roll/pitch)
+        sr, cr = np.sin(roll), np.cos(roll)
+        sp, cp = np.sin(pitch), np.cos(pitch)
+        mx, my, mz = mag_v
 
-        mag_x = mx*cp + mz*sp
-        mag_y = mx*sr*sp + my*cr - mz*sr*cp
+        # rotate mag by roll then pitch (body -> leveled body)
+        # this matches the standard "tilt compensation" ordering
+        mx2 = mx*cp + mz*sp
+        my2 = mx*sr*sp + my*cr - mz*sr*cp
 
-        yaw = np.arctan2(-mag_y, mag_x)
+        # 5) Yaw from leveled magnetometer (sign convention chosen to match your previous code)
+        yaw = np.arctan2(-my2, mx2)
 
-        # -------- 5) Convert Euler→quaternion (ENU, intrinsic xyz) --------
-        cy = np.cos(yaw/2);  sy = np.sin(yaw/2)
-        cp = np.cos(pitch/2); sp = np.sin(pitch/2)
-        cr = np.cos(roll/2);  sr = np.sin(roll/2)
+        # 6) Convert yaw/pitch/roll (Z-Y-X) into quaternion (vehicle -> world)
+        cy, sy = np.cos(yaw*0.5), np.sin(yaw*0.5)
+        cp2, sp2 = np.cos(pitch*0.5), np.sin(pitch*0.5)
+        cr2, sr2 = np.cos(roll*0.5), np.sin(roll*0.5)
 
-        qw = cr*cp*cy + sr*sp*sy
-        qx = sr*cp*cy - cr*sp*sy
-        qy = cr*sp*cy + sr*cp*sy
-        qz = cr*cp*sy - sr*sp*cy
+        w = cr2*cp2*cy + sr2*sp2*sy
+        x = sr2*cp2*cy - cr2*sp2*sy
+        y = cr2*sp2*cy + sr2*cp2*sy
+        z = cr2*cp2*sy - sr2*sp2*cy
 
-        # numpy.quaternion expects quaternion(w, x, y, z)
-        return np.array([qw, qx, qy, qz])
+        init_quat = q.quaternion(w, x, y, z).normalized()
+
+        mag_vehicle_q = q.quaternion(0.0, *mag_v)
+        mag_world_q = init_quat * mag_vehicle_q * init_quat.conjugate()
+        mag_world = np.array([mag_world_q.x, mag_world_q.y, mag_world_q.z], dtype=float)
+        mag_world /= np.linalg.norm(mag_world)
+        return init_quat, mag_world

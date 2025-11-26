@@ -1,10 +1,10 @@
-from UKF.constants import GRAVITY
+from UKF.constants import GRAVITY, MIN_VEL_FOR_DRAG, DRAG_PARAM
 import numpy as np
 import numpy.typing as npt
 import quaternion as q
 
-def measurement_function(sigmas, init_pressure, init_mag, init_quat, X):
-    pressure = init_pressure * np.power(1 - (sigmas[2] / 44330.0), 5.255876)
+def measurement_function(sigmas, init_pressure, mag_world, init_quat, X):
+    pressure = init_pressure * np.power(1.0 - (sigmas[2] / 44330.0), 5.255876)
     quat_state = sigmas[-4:]
     quat_state = q.from_float_array(quat_state).normalized()
 
@@ -16,25 +16,28 @@ def measurement_function(sigmas, init_pressure, init_mag, init_quat, X):
     acc_x = acc_vehicle_frame.x/np.sqrt(2) + acc_vehicle_frame.y/np.sqrt(2) + sigmas[12]
     acc_y = -acc_vehicle_frame.x/np.sqrt(2) + acc_vehicle_frame.y/np.sqrt(2) + sigmas[13]
     acc_z = acc_vehicle_frame.z + sigmas[14]
-
-    
-    # acc_x = sigmas[6] + sigmas[12]
-    # acc_y = sigmas[7] + sigmas[13]
-    # acc_z = sigmas[8] + sigmas[14]
+    if np.abs(acc_x) > 19.2882:
+        acc_x = np.clip(acc_x, -19.2882, 19.2882)
+    if np.abs(acc_y) > 19.6925:
+        acc_y = np.clip(acc_y, -19.6925, 19.6925)
 
     # same process with gyro: rotate to vehicle frame, then rotate 45 degrees
     global_gyro = sigmas[9:12] * (180.0 / np.pi)
     gyro_x = global_gyro[0]/np.sqrt(2) + global_gyro[1]/np.sqrt(2) + sigmas[15]
     gyro_y = -global_gyro[0]/np.sqrt(2) + global_gyro[1]/np.sqrt(2) + sigmas[16]
     gyro_z = global_gyro[2] + sigmas[17]
-    
 
-    initial_mag = init_mag.copy()
-    initial_mag[2] = -init_mag[2]
-    init_mag_q = q.quaternion(0, *initial_mag)
-    init_quat = q.from_float_array(init_quat).normalized()
-    delta_quat = init_quat * quat_state.conjugate()
-    mag_body_q = delta_quat.conjugate() * init_mag_q * delta_quat
+    R_mag_to_vehicle = np.diag([1.0, 1.0, -1.0])
+    R_vehicle_to_mag = R_mag_to_vehicle.T
+    mag_world_q = q.quaternion(0.0, *mag_world)
+
+    # rotate mag_world into VEHICLE frame:
+    mag_vehicle_q = quat_state.conjugate() * mag_world_q * quat_state
+    mag_vehicle = np.array([mag_vehicle_q.x, mag_vehicle_q.y, mag_vehicle_q.z], dtype=float)
+
+    # convert VEHICLE-frame mag into sensor mag frame using vehicle->mag_sensor (transpose of R_mag_to_vehicle)
+    mag_sensor_pred = R_vehicle_to_mag @ mag_vehicle
+    # print(mag_sensor_pred)
     return np.array([
         pressure,
         acc_x,
@@ -43,9 +46,9 @@ def measurement_function(sigmas, init_pressure, init_mag, init_quat, X):
         gyro_x,
         gyro_y,
         gyro_z,
-        mag_body_q.x,
-        mag_body_q.y,
-        -mag_body_q.z,
+        mag_sensor_pred[0],
+        mag_sensor_pred[1],
+        mag_sensor_pred[2],
         ])
 
 
@@ -64,10 +67,23 @@ def state_transition_function(sigmas, dt, u) -> npt.NDArray:
         accel_grav = sigmas[6:9] * GRAVITY
         accel_grav[2] -= GRAVITY
         next_state[3:6] = sigmas[3:6] + accel_grav * dt
+        
+        # update velocity and acceleration states to use drag if the velocity is high enough
+        if next_state[5] > MIN_VEL_FOR_DRAG:
+            # calculate expected drag accel
+            drag_acc = 0.5 * DRAG_PARAM * next_state[5]**2
+            next_state[5] += drag_acc * dt
+        next_state[0:3] = sigmas[0:3] + sigmas[3:6] * dt
+        return next_state
+    if len(u) == 3:
+        # landed
+        grav_vector = np.array([0, 0, GRAVITY])
+        next_state[3:6] = sigmas[3:6] + (sigmas[6:9] * GRAVITY - grav_vector) * dt
+        next_state[3] = sigmas[3] * 1e-2
+        next_state[4] = sigmas[4] * 1e-2
         next_state[0:3] = sigmas[0:3] + sigmas[3:6] * dt
         return next_state
     next_state[0:6] = u[0:6]
-    #next_state[6:9] /= np.linalg.norm(next_state[6:9])
-    next_state[9:12] = u[6:9]
+    next_state[9:12] = next_state[9:12] / 2
     return next_state
 

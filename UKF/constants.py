@@ -76,19 +76,16 @@ class StateControlInput(Enum):
     """
     Enum that represents control inputs for the state transition function for each flight state.
     """
-    STANDBY = (
-        [0, 0, 0, # position (x, y, z)
-         0, 0, 0,] # velocity (x, y, z)
-         ,)
-    MOTOR_BURN = ([None],)
-    COAST = ([None],)
-    FREEFALL = ([None],)
-    LANDED = ([0, 0, 0],) # velocity (x, y, z)
+    STANDBY = 0
+    MOTOR_BURN = 1
+    COAST = 2
+    FREEFALL = 3
+    LANDED = 4
 
     @property
     def array(self) -> npt.NDArray:
         """Returns as numpy array and makes immutable"""
-        return np.array(self.value[0])
+        return self.value
 
 
 class StateProcessCovariance(Enum):
@@ -167,7 +164,7 @@ class StateMeasurementNoise(Enum):
 
 
 # Sigma Point Constants
-ALPHA = 1e-3
+ALPHA = 1e-2
 BETA = 2
 KAPPA = 0
 

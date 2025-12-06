@@ -91,7 +91,7 @@ class State(ABC):
         """
 
     @abstractmethod
-    def measurement_function(self, sigmas, init_pressure, init_mag, init_quat, X):
+    def measurement_function(self, sigmas, init_pressure, init_mag):
         """
         Measurement function for Unscented Kalman Filter
         """
@@ -101,10 +101,6 @@ class State(ABC):
         Process noise covariance matrix
         """
         qvar = self.qvar * dt
-        if self.transient_time > 0:
-            scalar = max(100 * self.transient_time, 1)
-            qvar *= scalar
-            self.transient_time -= dt
         return np.diag(qvar)
 
 
@@ -145,8 +141,8 @@ class StandbyState(State):
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
     
-    def measurement_function(self, sigmas, init_pressure, init_mag, init_quat, X):
-        return measurement_function(sigmas, init_pressure, init_mag, init_quat, X)    
+    def measurement_function(self, sigmas, init_pressure, init_mag):
+        return measurement_function(sigmas, init_pressure, init_mag)    
 
 
 
@@ -207,8 +203,8 @@ class MotorBurnState(State):
 
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
-    def measurement_function(self, sigmas, init_pressure, init_mag, init_quat, X):
-        return measurement_function(sigmas, init_pressure, init_mag, init_quat, X)    
+    def measurement_function(self, sigmas, init_pressure, init_mag):
+        return measurement_function(sigmas, init_pressure, init_mag)    
 
 
 class CoastState(State):
@@ -256,8 +252,8 @@ class CoastState(State):
 
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
-    def measurement_function(self, sigmas, init_pressure, init_mag, init_quat, X):
-        return measurement_function(sigmas, init_pressure, init_mag, init_quat, X)    
+    def measurement_function(self, sigmas, init_pressure, init_mag):
+        return measurement_function(sigmas, init_pressure, init_mag)    
 
 
 class FreeFallState(State):
@@ -305,8 +301,8 @@ class FreeFallState(State):
 
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
-    def measurement_function(self, sigmas, init_pressure, init_mag, init_quat, X):
-        return measurement_function(sigmas, init_pressure, init_mag, init_quat, X)    
+    def measurement_function(self, sigmas, init_pressure, init_mag):
+        return measurement_function(sigmas, init_pressure, init_mag)    
 
 
 class LandedState(State):
@@ -340,5 +336,5 @@ class LandedState(State):
 
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
-    def measurement_function(self, sigmas, init_pressure, init_mag, init_quat, X):
-        return measurement_function(sigmas, init_pressure, init_mag, init_quat, X)    
+    def measurement_function(self, sigmas, init_pressure, init_mag):
+        return measurement_function(sigmas, init_pressure, init_mag)    

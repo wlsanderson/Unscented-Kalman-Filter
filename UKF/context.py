@@ -79,14 +79,14 @@ class Context:
             self.ukf.X[18:22] = q.as_float_array(self._initial_quat)
 
         # runs predict with the calculated dt and control input
-        control_input = self._flight_state.control_input.copy()
+        control_input = self._flight_state.control_input
         self.ukf.predict(self.data_processor.dt, control_input)
         if self._plotter:
             self._plotter.timestamps_pred.append(self._timestamp)
             self._plotter.X_data_pred.append(self.ukf.X.copy())
         self.ukf.R = np.diag(measurement_noise_diag)
 
-        self.ukf.update(self.data_processor.measurements, self._initial_pressure, self._initial_mag, self._initial_quat, control_input)
+        self.ukf.update(self.data_processor.measurements, self._initial_pressure, self._initial_mag, control_input)
         if self._plotter:
             self._plotter.X_data.append(self.ukf.X.copy())
             self._plotter.timestamps.append(self._timestamp)

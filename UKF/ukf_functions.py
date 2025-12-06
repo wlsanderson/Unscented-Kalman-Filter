@@ -3,14 +3,14 @@ import numpy as np
 import numpy.typing as npt
 import quaternion as q
 
-def measurement_function(sigmas, init_pressure, mag_world, init_quat, X):
+def measurement_function(sigmas, init_pressure, mag_world):
     pressure = init_pressure * np.power(1.0 - (sigmas[2] / 44330.0), 5.255876)
     quat_state = sigmas[-4:]
     quat_state = q.from_float_array(quat_state).normalized()
 
     
     global_acc = q.quaternion(0, *sigmas[6:9])
-    # globla accel is put into vehicle reference frame
+    # global accel is put into vehicle reference frame
     acc_vehicle_frame = quat_state.conjugate() * global_acc * quat_state
     # rotates vehicle frame accel 45 degrees ccw to line up with how imu is mounted on board
     acc_x = acc_vehicle_frame.x/np.sqrt(2) + acc_vehicle_frame.y/np.sqrt(2) + sigmas[12]
@@ -37,7 +37,6 @@ def measurement_function(sigmas, init_pressure, mag_world, init_quat, X):
 
     # convert VEHICLE-frame mag into sensor mag frame using vehicle->mag_sensor (transpose of R_mag_to_vehicle)
     mag_sensor_pred = R_vehicle_to_mag @ mag_vehicle
-    # print(mag_sensor_pred)
     return np.array([
         pressure,
         acc_x,
@@ -52,13 +51,13 @@ def measurement_function(sigmas, init_pressure, mag_world, init_quat, X):
         ])
 
 
-def state_transition_function(sigmas, dt, u) -> npt.NDArray:
+def state_transition_function(sigmas, dt, state) -> npt.NDArray:
     next_state = np.zeros(len(sigmas))
     # quaternions always last 4 states
     quat = q.from_float_array(sigmas[-4:]).normalized()
     # these last states are always predicted as x_k+1 = x_k
     next_state[6:22] = sigmas[6:22]
-    if u[0] is None:
+    if state == 1 or state == 2 or state == 3:
         delta_theta = sigmas[9:12] * dt
         # update quaternion with small rotation (delta theta -> delta quaternion)
         delta_q = q.from_rotation_vector(delta_theta)
@@ -75,7 +74,7 @@ def state_transition_function(sigmas, dt, u) -> npt.NDArray:
             next_state[5] += drag_acc * dt
         next_state[0:3] = sigmas[0:3] + sigmas[3:6] * dt
         return next_state
-    if len(u) == 3:
+    if state == 4:
         # landed
         grav_vector = np.array([0, 0, GRAVITY])
         next_state[3:6] = sigmas[3:6] + (sigmas[6:9] * GRAVITY - grav_vector) * dt
@@ -83,7 +82,23 @@ def state_transition_function(sigmas, dt, u) -> npt.NDArray:
         next_state[4] = sigmas[4] * 1e-2
         next_state[0:3] = sigmas[0:3] + sigmas[3:6] * dt
         return next_state
-    next_state[0:6] = u[0:6]
+    # state == 0
+    next_state[0:6] = 0
     next_state[9:12] = next_state[9:12] / 2
+    
+
     return next_state
 
+def print_c_array(arr, float_format="{:.15f}"):
+    arr = np.asarray(arr)
+
+    # 1D array
+    if arr.ndim == 1:
+        line = ", ".join(float_format.format(x) for x in arr)
+        print(line)
+        return
+
+    # 2D array
+    for row in arr:
+        line = ", ".join(float_format.format(x) for x in row)
+        print(f"{line},")

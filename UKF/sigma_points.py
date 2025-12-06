@@ -53,13 +53,13 @@ class SigmaPoints:
         # According to Edgar Kraft's paper on quaternion UKF's, we need to apply the process noise
         # before generating the sigma points, as opposed to a standard UKF where the noise is added
         # after propagating the sigma points through the state transition function.
+        
         try:
-            scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + self._n)*(P + Q))
+            scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + self._n) * (P + Q))
         except:
             print(P)
             print(np.linalg.eig(P + Q))
             raise Exception("matrix not positive definite")
-        
 
         # array to hold the sigma points, first row is the mean state with no perturbation applied.
         sigmas = np.zeros([self.num_sigmas(), state_dim])
@@ -95,6 +95,7 @@ class SigmaPoints:
         """
         lambda_ = self._compute_lambda_scaling_parameter()
         weight_component = 1 / (2*(self._n + lambda_))
+        
         # weights for mean and covariance, note that the mean weights must sum to one, but the
         # covariance weights do not have to. Negative weights are also possible.
         self.Wc = np.full(self.num_sigmas(), weight_component)

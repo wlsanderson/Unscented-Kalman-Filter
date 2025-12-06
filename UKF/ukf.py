@@ -56,8 +56,6 @@ class UKF:
 
 
     def predict(self, dt, u):
-        if self.X[2] > 40:
-            self._raise = True
         if (dt < 1e-12):
             raise ValueError("dt must be positive and non-zero")
         self.X[self._quat_idx] /= np.linalg.norm(self.X[self._quat_idx])

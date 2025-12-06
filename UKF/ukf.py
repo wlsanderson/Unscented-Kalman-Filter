@@ -39,7 +39,6 @@ class UKF:
         self.R = None
         self._dim_x = dim_x
         self._dim_z = dim_z
-        self._raise = False
         
         self._sigma_points_class  = points
         self._num_sigmas = self._sigma_points_class.num_sigmas()

@@ -8,6 +8,7 @@ from UKF.state import State, StandbyState
 import numpy as np
 import numpy.typing as npt
 import quaternion as q
+from UKF.ukf_functions import print_c_array
 
 class Context:
 
@@ -135,7 +136,6 @@ class Context:
         # 1) Transform raw sensor vectors into VEHICLE frame using fixed, known transforms
         acc_vehicle = imu_to_vehicle @ np.asarray(acc_imu_raw, dtype=float)
         mag_vehicle = R_mag_to_vehicle @ np.asarray(mag_raw, dtype=float)
-
         # 2) Normalize (we only care about direction for attitude initialization)
         if np.linalg.norm(acc_vehicle) == 0 or np.linalg.norm(mag_vehicle) == 0:
             raise ValueError("Zero-length sensor vector passed to initialization")

@@ -150,7 +150,7 @@ class StateProcessCovariance(Enum):
 class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
 
-    STANDBY = ([1e2, 1e-2, 1e-2, 1e-2, 3e-1, 3e-1, 3e-1, 1e-2, 1e-2, 1e-2],)
+    STANDBY = ([1e2, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3, 1e-2, 1e-2, 1e-2],)
     MOTOR_BURN = ([1e3, 1e-2, 1e-2, 1e-2, 1e2, 1e2, 1e2, 1e-3, 1e-3, 1e-3],)
     COAST = ([1e3, 1e-1, 1e-1, 1e-1, 1, 1, 1, 1e-3, 1e-3, 1e-3],)
     FREEFALL = ([1e3, 1e-1, 1e-1, 1e-1, 1e2, 1e2, 1e2, 1e-1, 1e-1, 1e-1],)
@@ -172,7 +172,7 @@ KAPPA = 0
 TAKEOFF_ACCELERATION_GS = 2
 MAX_VELOCITY_THRESHOLD = 0.98
 MAX_ALTITUDE_THRESHOLD = 0.99
-LANDED_ACCELERATION_GS = 5
+LANDED_ACCELERATION_GS = 50
 GROUND_ALTITUDE_METERS = 20
 
 # aerodynamic constants

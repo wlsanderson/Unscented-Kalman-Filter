@@ -92,7 +92,7 @@ class UKF:
         self.z_error_score = residual * (innovation_cov_inv @ residual)
 
         delta_x =  kalman_gain @ residual
-        if u != 0:
+        if u != 0 or self.mahalanobis_dist > 0.2:
             delta_x[12:18] = np.zeros(6)
         quat = q.from_float_array(self.X[self._quat_idx])
 
@@ -139,7 +139,7 @@ class UKF:
     def _unscented_transform_H(sigmas: npt.NDArray[np.float64], Wm, Wc, noise_cov):
         x_mean = np.dot(Wm, sigmas)
         residual = sigmas - x_mean[np.newaxis, :]
-        P_covariance = np.dot(residual.T, np.diag(Wc) @ residual)
+        P_covariance = np.dot(residual.T, np.dot(np.diag(Wc), residual))
         P_covariance += noise_cov
         return (x_mean, P_covariance)
 

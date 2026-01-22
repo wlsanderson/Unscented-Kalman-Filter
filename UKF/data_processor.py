@@ -38,10 +38,11 @@ class DataProcessor:
         self._iterator = self._df.itertuples(index=False, name=None)
         self._last_data = np.full(len(MEASUREMENT_FIELDS) + 1, None, dtype=object)
         # calibration values (defaults if not provided)
-        self.acc_cal_offset = np.array(acc_cal_offset) if acc_cal_offset is not None else np.zeros(3)
-        self.gyro_cal_offset = np.array(gyro_cal_offset) if gyro_cal_offset is not None else np.zeros(3)
-        self.mag_cal_offset = np.array(mag_cal_offset) if mag_cal_offset is not None else np.zeros(3)
-        self.mag_cal_scale = np.array(mag_cal_scale) if mag_cal_scale is not None else np.identity(3)
+        self.acc_cal_offset = np.array(acc_cal_offset, dtype=np.float32) if acc_cal_offset is not None else np.zeros(3, dtype=np.float32)
+        self.gyro_cal_offset = np.array(gyro_cal_offset, dtype=np.float32) if gyro_cal_offset is not None else np.zeros(3, dtype=np.float32)
+        self.mag_cal_offset = np.array(mag_cal_offset, dtype=np.float32) if mag_cal_offset is not None else np.zeros(3, dtype=np.float32)
+        self.mag_cal_scale = np.array(mag_cal_scale, dtype=np.float32) if mag_cal_scale is not None else np.identity(3, dtype=np.float32)
+        self.dt: np.float32 = 0.0
 
 
     def fetch(self):
@@ -65,10 +66,10 @@ class DataProcessor:
 
                 # If all fields except timestamp have been updated, break early
                 if np.all(updated_flags[1:]):
-                    self.dt = timestamp - self._min_t if last_timestamp is None else timestamp - last_timestamp
+                    self.dt = np.float32(timestamp - self._min_t) if last_timestamp is None else np.float32(timestamp - last_timestamp)
                     
                     n_meas = len(MEASUREMENT_FIELDS)
-                    self.measurements = np.array(new_data[1 : 1 + n_meas], dtype=np.float64)
+                    self.measurements = np.array(new_data[1 : 1 + n_meas], dtype=np.float32)
                     self.inputs = np.array(new_data[1 + n_meas : 1 + n_meas])
                     mag_idx = slice(n_meas - 3, n_meas)
                     mag = self.measurements[mag_idx]

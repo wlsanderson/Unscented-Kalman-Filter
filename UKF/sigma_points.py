@@ -55,14 +55,16 @@ class SigmaPoints:
         # after propagating the sigma points through the state transition function.
         
         try:
-            scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + self._n) * (P + Q))
+            nugget = 1e-6 * np.trace(P + Q, dtype=np.float32) / self._n
+            P_regularized = P + np.eye(self._n, dtype=np.float32) * nugget
+            scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + self._n) * (P_regularized + Q))
         except:
-            print(P)
-            print(np.linalg.eig(P + Q))
+            # print(P)
+            # print(np.linalg.eig(P + Q))
             raise Exception("matrix not positive definite")
 
         # array to hold the sigma points, first row is the mean state with no perturbation applied.
-        sigmas = np.zeros([self.num_sigmas(), state_dim])
+        sigmas = np.float32(np.zeros([self.num_sigmas(), state_dim]))
         sigmas[0] = X
 
         # generate the sigma points, the first n sigma points are X + scaled_sqrt, the next n are
@@ -103,7 +105,7 @@ class SigmaPoints:
         self.Wm[0] = lambda_ / (self._n + lambda_)
         self.Wc[0] = lambda_ / (self._n + lambda_) + (1 - self._alpha**2 + self._beta)
 
-    def _compute_lambda_scaling_parameter(self) -> float:
+    def _compute_lambda_scaling_parameter(self) -> np.float32:
         """ Computes the scaling parameter lambda for the sigma points. """
-        return self._alpha**2 * (self._n + self._kappa) - self._n
+        return np.float32(self._alpha**2 * (self._n + self._kappa) - self._n)
 

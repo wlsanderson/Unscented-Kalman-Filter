@@ -111,8 +111,8 @@ if __name__ == "__main__":
     identifier = 0x0048
     payload = bytes.fromhex('4649524d204c4f472076312e310ae4623c80df4c202a78646667000000000000000000000000000000000000000000000000000000000100000076312e302e300000000100000000000000000000000000000000803f0000000000000000000000000000803f0000000000000000000000000000803f0000000000000000000000000000803f0000000000000000000000000000803f0000000000000000000000000000803f0000000000000000000000000000803f0000000000000000000000000000803f0000000000000000000000000000803f0000804700008042000080466f1203430ad72343')  # Convert hex string to bytes
     send_and_receive(COM_PORT, header, identifier, payload)
-    time.sleep(2)
-    header = 0xB66B
-    identifier = 0x00FF
-    payload = bytes.fromhex('')  # Convert hex string to bytes
-    send_and_receive(COM_PORT, header, identifier, payload)
+    # time.sleep(2)
+    # header = 0xB66B
+    # identifier = 0x00FF
+    # payload = bytes.fromhex('')  # Convert hex string to bytes
+    # send_and_receive(COM_PORT, header, identifier, payload)

@@ -8,7 +8,7 @@ import yaml
 
 
 def run():
-    launch_folder = Path("launch_data/government_work_launch_1_avab")
+    launch_folder = Path("launch_data/government_work_launch_1_nc")
     #launch_folder = Path("launch_data/sailor")
     #launch_folder = Path("launch_data/lil_frank")
     #launch_folder = Path("launch_data/test")
@@ -23,12 +23,12 @@ def run():
     #max_t = 1400
 
     # gov work avab
-    min_t = 908.7
-    max_t = 923.7 + 70
+    #min_t = 908.7
+    #max_t = 923.7 - 10.88
 
     # gov work nc
-    #min_t = 1280
-    #max_t = 1295-5
+    min_t = 1280
+    max_t = 1295-10.7
     
     # lil frank
     #min_t = 1720

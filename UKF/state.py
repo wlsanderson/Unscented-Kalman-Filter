@@ -13,7 +13,7 @@ from UKF.constants import (
     MAX_VELOCITY_THRESHOLD,
     StateProcessCovariance,
     StateMeasurementNoise,
-    StateControlInput,
+    StateNum,
 )
 
 if TYPE_CHECKING:
@@ -57,18 +57,18 @@ class State(ABC):
 
     @property
     @abstractmethod
-    def qvar(self) -> np.float64:
+    def qvar(self) -> np.float32:
         """Process noise variance to be defined in each state subclass"""
 
     @property
     @abstractmethod
-    def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
+    def measurement_noise_diagonals(self) -> npt.NDArray[np.float32]:
         """Measurement noise covariance diagonals defined in each state subclass"""
 
     @property
     @abstractmethod
-    def control_input(self) -> npt.NDArray[np.float64]:
-        """Control input vector for the state transition function"""
+    def state_num(self) -> np.float32:
+        """State number for the state transition function"""
 
     @abstractmethod
     def update(self):
@@ -111,16 +111,16 @@ class StandbyState(State):
     __slots__ = ()
 
     @property
-    def qvar(self) -> np.float64:
+    def qvar(self) -> np.float32:
         return StateProcessCovariance.STANDBY.array
     
     @property
-    def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
+    def measurement_noise_diagonals(self) -> npt.NDArray[np.float32]:
         return StateMeasurementNoise.STANDBY.matrix
     
     @property
-    def control_input(self) -> npt.NDArray[np.float64]:
-        return StateControlInput.STANDBY.array
+    def state_num(self) -> np.float32:
+        return StateNum.STANDBY.val
 
 
     def update(self):
@@ -155,12 +155,12 @@ class MotorBurnState(State):
     )
 
     @property
-    def qvar(self) -> np.float64:
+    def qvar(self) -> np.float32:
         noise = StateProcessCovariance.MOTOR_BURN.array
         return noise
     
     @property
-    def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
+    def measurement_noise_diagonals(self) -> npt.NDArray[np.float32]:
         noise = StateMeasurementNoise.MOTOR_BURN.matrix
         if np.abs(self.context.data_processor.measurements[1]) > 19:
             noise[1] *= 1e3
@@ -174,8 +174,8 @@ class MotorBurnState(State):
         return noise
 
     @property
-    def control_input(self) -> npt.NDArray[np.float64]:
-        return StateControlInput.MOTOR_BURN.array
+    def state_num(self) -> np.float32:
+        return StateNum.MOTOR_BURN.val
 
 
     def __init__(self, context: "Context"):
@@ -210,20 +210,20 @@ class CoastState(State):
     )
 
     @property
-    def qvar(self) -> np.float64:
+    def qvar(self) -> np.float32:
         noise = StateProcessCovariance.COAST.array
         return noise
     
     @property
-    def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
+    def measurement_noise_diagonals(self) -> npt.NDArray[np.float32]:
         noise = StateMeasurementNoise.COAST.matrix
         
         noise[0] *= max(self.context.ukf.X[5], 1)
         return noise
 
     @property
-    def control_input(self) -> npt.NDArray[np.float64]:
-        return StateControlInput.COAST.array
+    def state_num(self) -> np.float32:
+        return StateNum.COAST.val
 
     def __init__(self, context: "Context"):
         super().__init__(context)
@@ -251,7 +251,7 @@ class FreeFallState(State):
     """
 
     @property
-    def qvar(self) -> np.float64:
+    def qvar(self) -> np.float32:
         process_noise = StateProcessCovariance.FREEFALL.array
         # start lowering certainty in acceleration and gyro predictions the closer the rocket
         # gets to landing, because hitting the ground throws off expected values
@@ -260,12 +260,12 @@ class FreeFallState(State):
         return process_noise
     
     @property
-    def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
+    def measurement_noise_diagonals(self) -> npt.NDArray[np.float32]:
         return StateMeasurementNoise.FREEFALL.matrix
 
     @property
-    def control_input(self) -> npt.NDArray[np.float64]:
-        return StateControlInput.FREEFALL.array
+    def state_num(self) -> np.float32:
+        return StateNum.FREEFALL.val
 
     __slots__ = ()
 
@@ -300,16 +300,16 @@ class LandedState(State):
     """
 
     @property
-    def qvar(self) -> np.float64:
+    def qvar(self) -> np.float32:
         return StateProcessCovariance.LANDED.array
     
     @property
-    def measurement_noise_diagonals(self) -> npt.NDArray[np.float64]:
+    def measurement_noise_diagonals(self) -> npt.NDArray[np.float32]:
         return StateMeasurementNoise.LANDED.matrix
 
     @property
-    def control_input(self) -> npt.NDArray[np.float64]:
-        return StateControlInput.LANDED.array
+    def state_num(self) -> np.float32:
+        return StateNum.LANDED.val
 
     __slots__ = ()
 

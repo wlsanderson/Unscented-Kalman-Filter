@@ -41,23 +41,23 @@ class Context:
             dim_z = MEASUREMENT_DIM,
             points = sigma_points,
         )
-        self._timestamp = 0.0
+        self._timestamp: np.float32 = np.float32(0.0)
         self.data_processor: DataProcessor = data_processor
         self.initialize_filter_settings()
         self._plotter = plotter
         self._flight_state: State = StandbyState(self)
         self.shutdown_requested: bool = False
-        self._initial_pressure: np.float64 | None = None
+        self._initial_pressure: np.float32 | None = None
         self._initial_mag: npt.NDArray | None = None
         self._initial_quat: npt.NDArray | None = None
-        self._max_velocity = 0.0
-        self._max_altitude = 0.0
+        self._max_velocity: np.float32 = np.float32(0.0)
+        self._max_altitude: np.float32 = np.float32(0.0)
 
 
     def initialize_filter_settings(self):
-        state_estimate = INITIAL_STATE_ESTIMATE.copy()
+        state_estimate = np.float32(np.copy(INITIAL_STATE_ESTIMATE))
         self.ukf.X = state_estimate
-        self.ukf.P = INITIAL_STATE_COV.copy()
+        self.ukf.P = np.float32(np.copy(INITIAL_STATE_COV))
         self.ukf.H = measurement_function
 
     def update(self):
@@ -68,7 +68,6 @@ class Context:
             return
         self._timestamp += self.data_processor.dt
         measurement_noise_diag = self._flight_state.measurement_noise_diagonals.copy()
-
         if self._initial_pressure is None:
             self._initial_pressure = self.data_processor.measurements[0]
 
@@ -77,17 +76,17 @@ class Context:
             acc = self.data_processor.measurements[1:4]
             mag = self.data_processor.measurements[-3:]
             self._initial_quat, self._initial_mag = self.calculate_initial_orientation_from_sensors(acc, mag)
-            self.ukf.X[18:22] = q.as_float_array(self._initial_quat)
+            self.ukf.X[-4:] = q.as_float_array(self._initial_quat)
 
         # runs predict with the calculated dt and control input
-        control_input = self._flight_state.control_input
-        self.ukf.predict(self.data_processor.dt, control_input)
+        state_num = self._flight_state.state_num
+        self.ukf.predict(self.data_processor.dt, state_num)
         if self._plotter:
             self._plotter.timestamps_pred.append(self._timestamp)
             self._plotter.X_data_pred.append(self.ukf.X.copy())
         self.ukf.R = np.diag(measurement_noise_diag)
 
-        self.ukf.update(self.data_processor.measurements, self._initial_pressure, self._initial_mag, control_input)
+        self.ukf.update(self.data_processor.measurements, self._initial_pressure, self._initial_mag, state_num)
         if self._plotter:
             self._plotter.X_data.append(self.ukf.X.copy())
             self._plotter.timestamps.append(self._timestamp)
@@ -129,25 +128,25 @@ class Context:
             [ 1.0/np.sqrt(2),  1.0/np.sqrt(2), 0.0],
             [-1.0/np.sqrt(2),  1.0/np.sqrt(2), 0.0],
             [ 0.0,      0.0,     1.0]
-        ])
+        ], dtype=np.float32)
         imu_to_vehicle = vehicle_to_imu.T
         R_mag_to_vehicle = np.diag([1.0, 1.0, -1.0])
 
         # 1) Transform raw sensor vectors into VEHICLE frame using fixed, known transforms
-        acc_vehicle = imu_to_vehicle @ np.asarray(acc_imu_raw, dtype=float)
-        mag_vehicle = R_mag_to_vehicle @ np.asarray(mag_raw, dtype=float)
+        acc_vehicle = imu_to_vehicle @ np.asarray(acc_imu_raw, dtype=np.float32)
+        mag_vehicle = R_mag_to_vehicle @ np.asarray(mag_raw, dtype=np.float32)
         # 2) Normalize (we only care about direction for attitude initialization)
         if np.linalg.norm(acc_vehicle) == 0 or np.linalg.norm(mag_vehicle) == 0:
             raise ValueError("Zero-length sensor vector passed to initialization")
 
         acc_v = acc_vehicle / np.linalg.norm(acc_vehicle)
         mag_v = mag_vehicle / np.linalg.norm(mag_vehicle)
-
         # 3) Compute roll/pitch from accelerometer (assumes acc measures specific force ≈ +up)
         # These formulas give roll=0,pitch=0 when acc = [0,0,1]
         ax, ay, az = acc_v
         roll  = np.arctan2(ay, az)
         pitch = np.arctan2(-ax, np.sqrt(ay*ay + az*az))
+        
 
         # 4) Level the magnetometer reading (rotate mag into level frame using roll/pitch)
         sr, cr = np.sin(roll), np.cos(roll)
@@ -176,6 +175,6 @@ class Context:
 
         mag_vehicle_q = q.quaternion(0.0, *mag_v)
         mag_world_q = init_quat * mag_vehicle_q * init_quat.conjugate()
-        mag_world = np.array([mag_world_q.x, mag_world_q.y, mag_world_q.z], dtype=float)
+        mag_world = np.array([mag_world_q.x, mag_world_q.y, mag_world_q.z], dtype=np.float32)
         mag_world /= np.linalg.norm(mag_world)
         return init_quat, mag_world

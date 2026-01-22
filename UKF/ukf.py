@@ -31,7 +31,7 @@ class UKF:
     )
 
     def __init__(self, dim_x: int, dim_z: int, points: SigmaPoints):
-        self.X = np.zeros(dim_x)
+        self.X = np.zeros(dim_x, dtype=np.float32)
         self.F = None
         self.P = None
         self.Q = None
@@ -42,8 +42,8 @@ class UKF:
         
         self._sigma_points_class  = points
         self._num_sigmas = self._sigma_points_class.num_sigmas()
-        self._sigmas_f = np.zeros([self._num_sigmas, dim_x])
-        self._sigmas_h = np.zeros([self._num_sigmas, dim_z])
+        self._sigmas_f = np.zeros([self._num_sigmas, dim_x], dtype=np.float32)
+        self._sigmas_h = np.zeros([self._num_sigmas, dim_z], dtype=np.float32)
         self._quat_idx = slice(dim_x - 4, dim_x)
         self._rotvec_idx = slice(dim_x - 4, dim_x - 1)
         self._vec_idx = slice(0, dim_x - 4)
@@ -68,11 +68,11 @@ class UKF:
 
 
     def update(self, z, init_pressure, init_mag, u):
-        sigmas_h = []
-        for s in self._sigmas_f:
-            sigmas_h.append(self.H(s, init_pressure, init_mag))
+        sigmas_h = np.zeros([self._sigmas_f.shape[0], self._dim_z], dtype=np.float32)
+        for i, s in enumerate(self._sigmas_f):
+            sigmas_h[i] = self.H(s, init_pressure, init_mag)
         self._sigmas_h = np.array(sigmas_h)
-        
+
         pred_z, innovation_cov = self._unscented_transform_H(
             self._sigmas_h,
             self._sigma_points_class.Wm,
@@ -82,7 +82,7 @@ class UKF:
         
         self.pred_z = pred_z
         innovation_cov_inv = np.linalg.inv(innovation_cov)
-       
+        
         P_cross_covariance = self._calculate_cross_cov(self.X, pred_z)
         kalman_gain = P_cross_covariance @ innovation_cov_inv
 
@@ -92,51 +92,49 @@ class UKF:
         self.z_error_score = residual * (innovation_cov_inv @ residual)
 
         delta_x =  kalman_gain @ residual
-        if u != 0 or self.mahalanobis_dist > 0.2:
-            delta_x[12:18] = np.zeros(6)
         quat = q.from_float_array(self.X[self._quat_idx])
 
         delta_q = q.from_rotation_vector(delta_x[self._rotvec_idx])
-        
         self.X[self._vec_idx] += delta_x[self._vec_idx]
         self.X[self._quat_idx] = q.as_float_array((delta_q * quat))
         new_P = self.P - np.dot(np.dot(kalman_gain, innovation_cov), np.transpose(kalman_gain))
         self.P = new_P
 
 
-    def _unscented_transform_F(self, sigmas: npt.NDArray[np.float64], Wm, Wc, X, noise_cov = None):
+    def _unscented_transform_F(self, sigmas: npt.NDArray[np.float32], Wm, Wc, X, noise_cov = None):
         # splitting sigma points up into vector states and quaternion states
         vector_sigmas = sigmas[:, self._vec_idx]
         quat_sigmas = q.from_float_array(sigmas[:, self._quat_idx])
         quat_state = q.from_float_array(X[self._quat_idx])
+
         # small delta quaternions are made by multiplying the quaternion sigmas by the
         # conjugate of the current quaternion state
         delta_quats = quat_sigmas * quat_state.conjugate()
         # delta quaternion rotations are converted into delta rotation vectors
-        delta_rotvecs = q.as_rotation_vector(delta_quats)
+        delta_rotvecs = np.float32(q.as_rotation_vector(delta_quats))
         # the mean of the rotation vector is calculated by multiplying each sigma by each weight
         # this mean cannot be calculated with quaternions directly due to the inability to sum
         # them.
-
         mean_delta_rotvec = np.dot(Wm, delta_rotvecs)
         # mean delta rotation vector is transformed back into a mean delta quaternion and
         # multiplied into the state to get the quaternion prediction
         mean_delta_quat = q.from_rotation_vector(mean_delta_rotvec)
-        mean_quat = q.as_float_array((mean_delta_quat * quat_state))
+        mean_quat = np.float32(q.as_float_array((mean_delta_quat * quat_state)))
         # the vector portion of the sigma points are calculated normally
         vector_mean = np.dot(Wm, vector_sigmas)
         # if there is a control input, then its either standby state or landed state.
         # ideally, this should be handled by checking the flight state.
         x_mean = np.concatenate([vector_mean, mean_quat])
+        
         vec_residual = vector_sigmas - vector_mean[np.newaxis, :]
         full_residuals = np.hstack((vec_residual, delta_rotvecs))
-        P_covariance = (full_residuals.T * Wc) @  full_residuals
+        P_covariance = np.dot(full_residuals.T, np.dot(np.diag(Wc), full_residuals))
         if noise_cov is not None:
             P_covariance += noise_cov
         return (x_mean, P_covariance)
     
     @staticmethod
-    def _unscented_transform_H(sigmas: npt.NDArray[np.float64], Wm, Wc, noise_cov):
+    def _unscented_transform_H(sigmas: npt.NDArray[np.float32], Wm, Wc, noise_cov):
         x_mean = np.dot(Wm, sigmas)
         residual = sigmas - x_mean[np.newaxis, :]
         P_covariance = np.dot(residual.T, np.dot(np.diag(Wc), residual))
@@ -153,8 +151,9 @@ class UKF:
         Computes cross covariance between sigma points in state space and measurement space.
         Quaternion state is represented in the tangent space R^3 (rotation vectors).
         """
-        P_cross_cov = np.zeros((self._dim_x - 1, self._dim_z))
+        P_cross_cov = np.float32(np.zeros((self._dim_x - 1, self._dim_z)))
         n = self._sigmas_f.shape[0]
+        
         for i in range(n):
             dx_vector = np.subtract(self._sigmas_f[i][self._vec_idx], x[self._vec_idx])
             quat_sigmas_f = q.from_float_array(self._sigmas_f[i][self._quat_idx])

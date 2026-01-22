@@ -3,7 +3,7 @@ import numpy.typing as npt
 from enum import Enum
 
 
-STATE_DIM = 22
+STATE_DIM = 16
 """Number of states in the state vector"""
 
 
@@ -12,8 +12,6 @@ INITIAL_STATE_ESTIMATE = np.array([
     0.0, 0.0, 0.0, # velocity (x, y, z)
     0.0, 0.0, 1.0, # accel (x, y, z)
     0.0, 0.0, 0.0, # gyro (x, y, z)
-    0, 0, 0, # accelerometer offsets (x, y, z)
-    0, 0, 0, # gyro offsets (x, y, z)
     1, 0, 0, 0, # quaternion orientation (w, x, y, z)
     ])
 """State vector initial estimate"""
@@ -24,8 +22,6 @@ INITIAL_STATE_COV = np.diag([
     1e-6, 1e-6, 1e-6, # velocity (x, y, z)
     1e-2, 1e-2, 1e-2, # accel (x, y, z)
     1e-5, 1e-5, 1e-5, # gyro (x, y, z)
-    1e-4, 1e-4, 1e-4, # accelerometer offsets (x, y, z)
-    1e-4, 1e-4, 1e-4, # gyro offsets (x, y, z)
     1e-1, 1e-1, 1e-1, # quaternion orientation (w, x, y, z)
 ])
 
@@ -43,16 +39,10 @@ class States(Enum):
     GYRO_X = 9
     GYRO_Y = 10
     GYRO_Z = 11
-    ACC_OFFSET_X = 12
-    ACC_OFFSET_Y = 13
-    ACC_OFFSET_Z = 14
-    GYRO_OFFSET_X = 15
-    GYRO_OFFSET_Y = 16
-    GYRO_OFFSET_Z = 17
-    QUATERNION_W = 18
-    QUATERNION_X = 19
-    QUATERNION_Y = 20
-    QUATERNION_Z = 21
+    QUATERNION_W = 12
+    QUATERNION_X = 13
+    QUATERNION_Y = 14
+    QUATERNION_Z = 15
 
 
 
@@ -99,8 +89,6 @@ class StateProcessCovariance(Enum):
          1e-5, 1e-5, 1e-5, # velocity (x, y, z)
          1e-3, 1e-3, 1e-3, # acceleration (x, y, z)
          1, 1, 1, # gyro (x, y, z)
-         0, 0, 0, # accelerometer offset (x, y, z)
-         0, 0, 0, # gyroscope offset (x, y, z)
          1e-1, 1e-1, 1e-1] # orientation (r, p, y)
         ,)
 
@@ -109,8 +97,6 @@ class StateProcessCovariance(Enum):
          1e-2, 1e-2, 1e-2, # velocity (x, y, z)
          1e1, 1e1, 1e1, # acceleration (x, y, z)
          1e4, 1e4, 1e4, # gyro (x, y, z)
-         0, 0, 0, # accelerometer offset (x, y, z)
-         0, 0, 0, # gyroscope offset (x, y, z)
          1e2, 1e2, 1e2] # orientation (r, p, y)
         ,)
     COAST = (
@@ -118,8 +104,6 @@ class StateProcessCovariance(Enum):
          1e-3, 1e-3, 1e-3, # velocity (x, y, z)
          1e1, 1e1, 1e1, # acceleration (x, y, z)
          1e3, 1e3, 1e3, # gyro (x, y, z)
-         0, 0, 0, # accelerometer offset (x, y, z)
-         0, 0, 0, # gyroscope offset (x, y, z)
          1e1, 1e1, 1e1] # orientation (r, p, y)
         ,)
     FREEFALL = (
@@ -127,8 +111,6 @@ class StateProcessCovariance(Enum):
          1, 1, 1, # velocity (x, y, z)
          1, 1, 1, # acceleration (x, y, z)
          1e2, 1e2, 1e2, # gyro (x, y, z)
-         0, 0, 0, # accelerometer offset (x, y, z)
-         0, 0, 0, # gyroscope offset (x, y, z)
          1e1, 1e1, 1e1] # orientation (r, p, y)
         ,)
     LANDED = (
@@ -136,8 +118,6 @@ class StateProcessCovariance(Enum):
          1, 1, 1, # velocity (x, y, z)
          1e2, 1e2, 1e2, # acceleration (x, y, z)
          1e2, 1e2, 1e2, # gyro (x, y, z)
-         0, 0, 0, # accelerometer offset (x, y, z)
-         0, 0, 0, # gyroscope offset (x, y, z)
          1, 1, 1] # orientation (r, p, y)
         ,)
 

@@ -77,7 +77,7 @@ class Context:
             acc = self.data_processor.measurements[1:4]
             mag = self.data_processor.measurements[-3:]
             self._initial_quat, self._initial_mag = self.calculate_initial_orientation_from_sensors(acc, mag)
-            self.ukf.X[18:22] = q.as_float_array(self._initial_quat)
+            self.ukf.X[12:16] = q.as_float_array(self._initial_quat)
 
         # runs predict with the calculated dt and control input
         control_input = self._flight_state.control_input

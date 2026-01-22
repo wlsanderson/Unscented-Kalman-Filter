@@ -92,8 +92,6 @@ class UKF:
         self.z_error_score = residual * (innovation_cov_inv @ residual)
 
         delta_x =  kalman_gain @ residual
-        if u != 0 or self.mahalanobis_dist > 0.2:
-            delta_x[12:18] = np.zeros(6)
         quat = q.from_float_array(self.X[self._quat_idx])
 
         delta_q = q.from_rotation_vector(delta_x[self._rotvec_idx])

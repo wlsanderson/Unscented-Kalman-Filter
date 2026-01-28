@@ -36,7 +36,6 @@ def measurement_function(sigmas, init_pressure, mag_world):
     # rotate mag_world into VEHICLE frame:
     mag_vehicle_q = quat_state.conjugate() * mag_world_q * quat_state
     mag_vehicle = np.array([mag_vehicle_q.x, mag_vehicle_q.y, mag_vehicle_q.z], dtype=np.float32)
-    print(acc_x)
     # convert VEHICLE-frame mag into sensor mag frame using vehicle->mag_sensor (transpose of R_mag_to_vehicle)
     mag_sensor_pred = R_vehicle_to_mag @ mag_vehicle
     return np.array([
@@ -65,7 +64,7 @@ def state_transition_function(sigmas, dt, state) -> npt.NDArray:
         
         # update quaternion with small rotation (delta theta -> delta quaternion)
         delta_q = q.from_rotation_vector(delta_theta)
-        next_quat = (quat * delta_q).normalized()
+        next_quat = (quat * delta_q)
         next_state[-4:] = q.as_float_array(next_quat)
         accel_grav = sigmas[6:9] * GRAVITY
         accel_grav[2] -= GRAVITY
@@ -87,22 +86,22 @@ def state_transition_function(sigmas, dt, state) -> npt.NDArray:
         next_state[0:3] = sigmas[0:3] + sigmas[3:6] * dt
         return next_state
     # state == 0
-    next_state[0:6] = 0
-    next_state[9:12] = next_state[9:12] / 2
+    next_state[0:6] = np.float32(0)
+    next_state[9:12] = next_state[9:12] / np.float32(2)
     
 
     return next_state
 
-def print_c_array(arr, float_format="{:.15f}"):
+def print_c_array(arr, float_format="{:.8f}"):
     arr = np.asarray(arr)
 
     # 1D array
     if arr.ndim == 1:
-        line = ", ".join(float_format.format(x) for x in arr)
-        print(line)
+        line = "F, ".join(float_format.format(x) for x in arr)
+        print(line + "F")
         return
 
     # 2D array
     for row in arr:
-        line = ", ".join(float_format.format(x) for x in row)
-        print(f"{line},")
+        line = "F, ".join(float_format.format(x) for x in row)
+        print(f"{line}F,")

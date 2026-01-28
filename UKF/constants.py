@@ -93,11 +93,11 @@ class StateProcessCovariance(Enum):
         ,)
 
     MOTOR_BURN = (
-        [1e-1, 1e-1, 1e-1, # position (x, y, z)
+        [1e-2, 1e-2, 1e-2, # position (x, y, z)
          1e-2, 1e-2, 1e-2, # velocity (x, y, z)
          1e1, 1e1, 1e1, # acceleration (x, y, z)
-         1e1, 1e1, 1e1, # gyro (x, y, z)
-         1e1, 1e1, 1e1] # orientation (r, p, y)
+         1e4, 1e4, 1e4, # gyro (x, y, z)
+         1e2, 1e2, 1e2] # orientation (r, p, y)
         ,)
     COAST = (
         [1e-2, 1e-2, 1e-2, # position (x, y, z)
@@ -144,7 +144,7 @@ class StateMeasurementNoise(Enum):
 
 
 # Sigma Point Constants
-ALPHA = 1e-2
+ALPHA = 0.3
 BETA = 2
 KAPPA = 0
 

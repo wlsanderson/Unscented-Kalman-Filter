@@ -106,7 +106,6 @@ class UKF:
         vector_sigmas = sigmas[:, self._vec_idx]
         quat_sigmas = q.from_float_array(sigmas[:, self._quat_idx])
         quat_state = q.from_float_array(X[self._quat_idx])
-
         # small delta quaternions are made by multiplying the quaternion sigmas by the
         # conjugate of the current quaternion state
         delta_quats = quat_sigmas * quat_state.conjugate()
@@ -145,6 +144,7 @@ class UKF:
         sigmas = self._sigma_points_class.calculate_sigma_points(self.X, self.P, Q)
         for i, s in enumerate(sigmas):
             self._sigmas_f[i] = self.F(s, dt, u)
+        print_c_array(self._sigmas_f)
 
     def _calculate_cross_cov(self, x, z):
         """

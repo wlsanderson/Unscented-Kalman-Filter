@@ -28,7 +28,7 @@ def run():
 
     # gov work nc
     min_t = 1280
-    max_t = 1295-10.7
+    max_t = 1295
     
     # lil frank
     #min_t = 1720

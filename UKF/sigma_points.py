@@ -5,6 +5,7 @@ Edgar Kraft's paper on quaternion UKF's.
 import numpy as np
 import numpy.typing as npt
 import quaternion
+from UKF.ukf_functions import print_c_array
 
 class SigmaPoints:
     __slots__ = (
@@ -69,8 +70,8 @@ class SigmaPoints:
         # generate the sigma points, the first n sigma points are X + scaled_sqrt, the next n are
         # X - scaled_sqrt.
         for i in range(self._n):
-            sigmas[i+1][self._vec_idx] = np.add(X[self._vec_idx], scaled_cholesky_sqrt[:, i][self._vec_idx])
-            sigmas[self._n+i+1][self._vec_idx] = np.subtract(X[self._vec_idx], scaled_cholesky_sqrt[:, i][self._vec_idx])
+            sigmas[i+1][self._vec_idx] = X[self._vec_idx] + scaled_cholesky_sqrt[:, i][self._vec_idx]
+            sigmas[self._n+i+1][self._vec_idx] = X[self._vec_idx] - scaled_cholesky_sqrt[:, i][self._vec_idx]
 
             # to handle the quaternion part, we convert the rotation vector to a quaternion
             # and apply it to the mean quaternion via quaternion multiplication.

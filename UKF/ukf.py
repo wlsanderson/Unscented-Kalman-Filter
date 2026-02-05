@@ -104,47 +104,65 @@ class UKF:
     def _unscented_transform_F(self, sigmas: npt.NDArray[np.float32], Wm, Wc, X, noise_cov = None):
         # splitting sigma points up into vector states and quaternion states
         vector_sigmas = sigmas[:, self._vec_idx]
-        quat_sigmas = q.from_float_array(sigmas[:, self._quat_idx])
-        quat_state = q.from_float_array(X[self._quat_idx])
+        quat_sigmas = q.from_float_array(np.float32(sigmas[:, self._quat_idx]))
+        quat_state = q.from_float_array(np.float32(X[self._quat_idx]))
         # small delta quaternions are made by multiplying the quaternion sigmas by the
         # conjugate of the current quaternion state
-        delta_quats = quat_sigmas * quat_state.conjugate()
+        quat_state_conj = q.from_float_array(np.array([X[12], -X[13], -X[14], -X[15]], dtype=np.float32))
+        delta_quats = quat_sigmas * quat_state_conj
+
         # delta quaternion rotations are converted into delta rotation vectors
         delta_rotvecs = np.float32(q.as_rotation_vector(delta_quats))
         # the mean of the rotation vector is calculated by multiplying each sigma by each weight
         # this mean cannot be calculated with quaternions directly due to the inability to sum
         # them.
-        mean_delta_rotvec = np.dot(Wm, delta_rotvecs)
+        #mean_delta_rotvec = np.dot(Wm, delta_rotvecs)
+        mean_delta_rotvec = np.float32(np.zeros(3))
+        for i in range(3):
+            for j in range(self._num_sigmas):
+                mean_delta_rotvec[i] += Wm[j] * delta_rotvecs[j][i]
         # mean delta rotation vector is transformed back into a mean delta quaternion and
         # multiplied into the state to get the quaternion prediction
         mean_delta_quat = q.from_rotation_vector(mean_delta_rotvec)
         mean_quat = np.float32(q.as_float_array((mean_delta_quat * quat_state)))
         # the vector portion of the sigma points are calculated normally
-        vector_mean = np.dot(Wm, vector_sigmas)
+        # np.dot(Wm, vector_sigmas) doesn't actually give the expected float32 answer that matches
+        # the C code
+        vector_mean = np.float32(np.zeros(self._dim_x - 4))
+        for i in range(self._dim_x - 4):
+            for j in range(self._num_sigmas):
+                vector_mean[i] += (Wm[j] * vector_sigmas[j][i])
+
         # if there is a control input, then its either standby state or landed state.
         # ideally, this should be handled by checking the flight state.
         x_mean = np.concatenate([vector_mean, mean_quat])
-        
         vec_residual = vector_sigmas - vector_mean[np.newaxis, :]
         full_residuals = np.hstack((vec_residual, delta_rotvecs))
-        P_covariance = np.dot(full_residuals.T, np.dot(np.diag(Wc), full_residuals))
+        # this line is not equivalent to C code, numerical differences
+        # P_covariance = np.dot(full_residuals.T, np.dot(np.diag(Wc), full_residuals))
+        P_covariance = np.zeros((self._dim_x - 1, self._dim_x - 1), dtype=np.float32)
+        for i in range(self._dim_x - 1):
+            for k in range(self._dim_x - 1):
+                val = np.float32(0.0)
+                for j in range(self._num_sigmas):
+                    val += np.float32(Wc[j]) * np.float32(full_residuals[j][i]) * np.float32(full_residuals[j][k])
+                P_covariance[i][k] = val
         if noise_cov is not None:
             P_covariance += noise_cov
         return (x_mean, P_covariance)
     
     @staticmethod
     def _unscented_transform_H(sigmas: npt.NDArray[np.float32], Wm, Wc, noise_cov):
-        x_mean = np.dot(Wm, sigmas)
-        residual = sigmas - x_mean[np.newaxis, :]
+        z_mean = np.dot(Wm, sigmas)
+        residual = sigmas - z_mean[np.newaxis, :]
         P_covariance = np.dot(residual.T, np.dot(np.diag(Wc), residual))
         P_covariance += noise_cov
-        return (x_mean, P_covariance)
+        return (z_mean, P_covariance)
 
     def compute_process_sigmas(self, dt, Q, u):
         sigmas = self._sigma_points_class.calculate_sigma_points(self.X, self.P, Q)
         for i, s in enumerate(sigmas):
             self._sigmas_f[i] = self.F(s, dt, u)
-        print_c_array(self._sigmas_f)
 
     def _calculate_cross_cov(self, x, z):
         """

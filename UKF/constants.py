@@ -94,7 +94,7 @@ class StateProcessCovariance(Enum):
 
     MOTOR_BURN = (
         [1e-2, 1e-2, 1e-2, # position (x, y, z)
-         1e-2, 1e-2, 1e-2, # velocity (x, y, z)
+         1e-3, 1e-3, 1e-3, # velocity (x, y, z)
          1e1, 1e1, 1e1, # acceleration (x, y, z)
          1e4, 1e4, 1e4, # gyro (x, y, z)
          1e2, 1e2, 1e2] # orientation (r, p, y)
@@ -152,7 +152,7 @@ KAPPA = 0
 TAKEOFF_ACCELERATION_GS = 2
 MAX_VELOCITY_THRESHOLD = 0.98
 MAX_ALTITUDE_THRESHOLD = 0.99
-LANDED_ACCELERATION_GS = 50
+LANDED_ACCELERATION_GS = 5
 GROUND_ALTITUDE_METERS = 20
 
 # aerodynamic constants

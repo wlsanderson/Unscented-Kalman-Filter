@@ -1,7 +1,7 @@
 from UKF.ukf import UKF
 from UKF.sigma_points import SigmaPoints
 from UKF.data_processor import DataProcessor
-from UKF.constants import STATE_DIM, ALPHA, BETA, KAPPA, MEASUREMENT_DIM, INITIAL_STATE_ESTIMATE, INITIAL_STATE_COV, TIMESTAMP_UNITS
+from UKF.constants import STATE_DIM, ALPHA, BETA, KAPPA, MEASUREMENT_DIM, INITIAL_STATE_ESTIMATE, INITIAL_STATE_COV
 from UKF.ukf_functions import measurement_function
 from UKF.plotter import Plotter
 from UKF.state import State, StandbyState
@@ -9,6 +9,7 @@ import numpy as np
 import numpy.typing as npt
 import quaternion as q
 from UKF.ukf_functions import print_c_array
+import random
 
 class Context:
 
@@ -61,12 +62,16 @@ class Context:
         self.ukf.H = measurement_function
 
     def update(self):
-        if (not self.data_processor.fetch()):
-            if self._plotter:
-                self._plotter.start_plot()
-            self.shutdown_requested = True
-            return
-        self._timestamp += self.data_processor.dt
+        dt = np.float32(0.0)
+        rand_dt = random.uniform(0.0025e-6, 0.004e-6)
+        while (dt < rand_dt):
+            if (not self.data_processor.fetch()):
+                if self._plotter:
+                    self._plotter.start_plot()
+                self.shutdown_requested = True
+                return
+            dt += np.float32(self.data_processor.dt)
+        self._timestamp += dt
         measurement_noise_diag = self._flight_state.measurement_noise_diagonals.copy()
         if self._initial_pressure is None:
             self._initial_pressure = self.data_processor.measurements[0]
@@ -80,7 +85,7 @@ class Context:
 
         # runs predict with the calculated dt and control input
         state_num = self._flight_state.state_num
-        self.ukf.predict(self.data_processor.dt, state_num)
+        self.ukf.predict(dt, state_num)
         if self._plotter:
             self._plotter.timestamps_pred.append(self._timestamp)
             self._plotter.X_data_pred.append(self.ukf.X.copy())

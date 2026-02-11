@@ -77,10 +77,15 @@ class DataProcessor:
                     mag = (mag - self.mag_cal_offset) @ self.mag_cal_scale
                     mag_norm = np.linalg.norm(mag)
                     self.measurements[mag_idx] =  mag / mag_norm
-                    # print("meas")
-                    # print(self.measurements[mag_idx])
+
                     self.measurements[1:4] = self.measurements[1:4] - self.acc_cal_offset
+                    #self.measurements[1] = -self.measurements[1]
+                    #self.measurements[2] = -self.measurements[2]
                     self.measurements[4:7] = self.measurements[4:7] - self.gyro_cal_offset
+                    #self.measurements[4] = -self.measurements[4]
+                    #self.measurements[5] = -self.measurements[5]
+                    # self.measurements[7] = -self.measurements[7]
+                    # self.measurements[8] = -self.measurements[8]
                     self._last_data = new_data
                     return True
             print("eof")

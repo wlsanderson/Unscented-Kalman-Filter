@@ -8,8 +8,8 @@ import yaml
 
 
 def run():
-    #launch_folder = Path("launch_data/government_work_launch_1_avab")
-    launch_folder = Path("launch_data/sailor")
+    launch_folder = Path("launch_data/government_work_launch_1_nc")
+    #launch_folder = Path("launch_data/sailor")
     #launch_folder = Path("launch_data/lil_frank")
     #launch_folder = Path("launch_data/test")
     launch_log = np.array([
@@ -19,16 +19,16 @@ def run():
     ], dtype=object)
 
     # sailor
-    min_t = 1373
-    max_t = 1400 - 15
+    #min_t = 1373
+    #max_t = 1400 - 23
 
     # gov work avab
-    #min_t = 908.7
-    #max_t = 1000
+    #min_t = 902
+    #max_t = 1000 - 80
 
     # gov work nc
-    #min_t = 1280
-    #max_t = 1295
+    min_t = 1273.42
+    max_t = 1291.4
     
     # lil frank
     #min_t = 1720

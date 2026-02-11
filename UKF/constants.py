@@ -22,7 +22,7 @@ INITIAL_STATE_COV = np.diag([
     1e-6, 1e-6, 1e-6, # velocity (x, y, z)
     1e-2, 1e-2, 1e-2, # accel (x, y, z)
     1e-5, 1e-5, 1e-5, # gyro (x, y, z)
-    1e-1, 1e-1, 1e-1, # quaternion orientation (w, x, y, z)
+    1, 1, 1, # quaternion orientation (w, x, y, z)
 ])
 
 class States(Enum):
@@ -93,11 +93,11 @@ class StateProcessCovariance(Enum):
         ,)
 
     MOTOR_BURN = (
-        [1e-2, 1e-2, 1e-2, # position (x, y, z)
-         1e-3, 1e-3, 1e-3, # velocity (x, y, z)
-         1e1, 1e1, 1e1, # acceleration (x, y, z)
-         1e4, 1e4, 1e4, # gyro (x, y, z)
-         1e2, 1e2, 1e2] # orientation (r, p, y)
+        [1, 1, 1e-2, # position (x, y, z)
+         1e-1, 1e-1, 1e-2, # velocity (x, y, z)
+         10, 10, 3e2, # acceleration (x, y, z)
+         1, 1, 1, # gyro (x, y, z)
+         1, 1, 1] # orientation (r, p, y)
         ,)
     COAST = (
         [1e-2, 1e-2, 1e-2, # position (x, y, z)
@@ -131,8 +131,8 @@ class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
 
     STANDBY = ([1e2, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3, 1e-2, 1e-2, 1e-2],)
-    MOTOR_BURN = ([1e1, 1e-2, 1e-2, 1e-2, 1e1, 1e1, 1e1, 1e-2, 1e-2, 1e-2],)
-    COAST = ([1e3, 1e-1, 1e-1, 1e-1, 1, 1, 1, 1e-3, 1e-3, 1e-3],)
+    MOTOR_BURN = ([0.1, 8e-1, 8e-1, 8e-1, 1e4, 1e4, 1e4, 1e4, 1e4, 1e4],)
+    COAST = ([1e3, 1e-2, 1e-2, 1e-2, 1e-1, 1e-1, 1e-1, 1e-3, 1e-3, 1e-3],)
     FREEFALL = ([1e3, 1e-1, 1e-1, 1e-1, 1e2, 1e2, 1e2, 1e-1, 1e-1, 1e-1],)
     LANDED = ([1e1, 1e-2, 1e-2, 1e-2, 1e1, 1e1, 1e1, 1e-1, 1e-1, 1e-1],)
 
@@ -157,8 +157,6 @@ GROUND_ALTITUDE_METERS = 20
 
 # aerodynamic constants
 GRAVITY = 9.798
-MIN_VEL_FOR_DRAG = 25.0  # m/s
-DRAG_PARAM = -2.5e-4
 
 # log files
 TIMESTAMP_COL_NAME = "timestamp"

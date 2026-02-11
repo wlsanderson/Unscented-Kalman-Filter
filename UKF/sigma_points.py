@@ -58,6 +58,7 @@ class SigmaPoints:
             # nugget = 1e-6 * np.trace(P + Q, dtype=np.float32) / self._n
             # P_regularized = P + np.eye(self._n, dtype=np.float32) * nugget
             scaled_cholesky_sqrt = np.linalg.cholesky((lambda_ + self._n) * (P + Q))
+            #print(f"{X[8]:.2f}   {np.min(np.linalg.eig(P).eigenvalues)}")
         except:
             print(P)
             print(np.linalg.eig(P + Q))

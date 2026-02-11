@@ -1,4 +1,4 @@
-from UKF.constants import GRAVITY, MIN_VEL_FOR_DRAG, DRAG_PARAM
+from UKF.constants import GRAVITY
 import numpy as np
 import numpy.typing as npt
 import quaternion as q
@@ -69,12 +69,6 @@ def state_transition_function(sigmas, dt, state) -> npt.NDArray:
         accel_grav = sigmas[6:9] * GRAVITY
         accel_grav[2] -= GRAVITY
         next_state[3:6] = sigmas[3:6] + accel_grav * dt
-        
-        # update velocity and acceleration states to use drag if the velocity is high enough
-        if next_state[5] > MIN_VEL_FOR_DRAG:
-            # calculate expected drag accel
-            drag_acc = 0.5 * DRAG_PARAM * next_state[5]**2
-            next_state[5] += drag_acc * dt
         next_state[0:3] = sigmas[0:3] + sigmas[3:6] * dt
         return next_state
     if state == 4:

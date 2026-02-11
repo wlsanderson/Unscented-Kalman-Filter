@@ -9,8 +9,6 @@ import numpy.typing as npt
 from UKF.constants import (
     GROUND_ALTITUDE_METERS,
     LANDED_ACCELERATION_GS,
-    MAX_ALTITUDE_THRESHOLD,
-    MAX_VELOCITY_THRESHOLD,
     StateProcessCovariance,
     StateMeasurementNoise,
     StateNum,
@@ -129,7 +127,7 @@ class StandbyState(State):
         """
 
         # If the velocity of the rocket is above a threshold, the rocket has launched.
-        if np.abs(self.context.ukf.mahalanobis_dist) > 30:
+        if np.abs(self.context.ukf.mahalanobis_dist) > 300:
             self.next_state()
             return
 
@@ -163,14 +161,15 @@ class MotorBurnState(State):
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float32]:
         noise = StateMeasurementNoise.MOTOR_BURN.matrix
         if np.abs(self.context.data_processor.measurements[1]) > 19:
-            noise[1] *= 1e3
+            noise[1] *= 1e2
         if np.abs(self.context.data_processor.measurements[2]) > 19:
-            noise[2] *= 1e3
+            noise[2] *= 1e2
         if np.abs(self.context.data_processor.measurements[3]) > 19:
-            noise[3] *= 1e3
+            noise[3] *= 1e2
 
-        # an attempt to filter transonic effects
-        noise[0] *= max(self.context.ukf.X[5], 1)
+        # an attempt to filter compressability effects
+        if self.context.ukf.X[5] > 1:
+            noise[0] *= self.context.ukf.X[5]
         return noise
 
     @property
@@ -186,12 +185,13 @@ class MotorBurnState(State):
         the motor has burned out."""
 
 
-        if self.context.ukf.X[2] > 15 and self.context.ukf.X[8] < -0.1:
+        if self.context.ukf.X[2] > 15 and self.context.ukf.X[8] < -0.35:
             self.next_state()
             return
 
     def next_state(self):
         print("motor burn -> coast")
+        print(self.context._timestamp)
         self.context._flight_state = CoastState(self.context)
 
     def state_transition_function(self, sigma_points, dt, u):

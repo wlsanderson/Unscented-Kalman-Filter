@@ -8,51 +8,97 @@ class DataProcessor:
 
     __slots__ = (
         "_df",
-        "_headers",
-        "_needed_measurements",
         "_iterator",
-        "_iterator",
+        "dt",
+        "measurements",
+        "inputs",
+        "_last_data",
+        "_min_t",
+        "acc_cal_offset",
+        "gyro_cal_offset",
+        "mag_cal_offset",
+        "mag_cal_scale",
     )
 
-    def __init__(self, launch_log: Path, min_r = None, max_r = None):
-        self._headers: pd.DataFrame = pd.read_csv(launch_log, nrows=0)
-        self._needed_measurements = list(
-            (set(MEASUREMENT_FIELDS) | set([TIMESTAMP_COL_NAME])) & set(self._headers.columns)
-        )
-        self._df: pd.DataFrame = pd.read_csv(launch_log, usecols=self._needed_measurements)
+    def __init__(self, bmp_data: Path, imu_data: Path, mag_data: Path, min_t = None, max_t = None,
+                 acc_cal_offset=None, gyro_cal_offset=None, mag_cal_offset=None, mag_cal_scale=None):
+        bmp_df = self.get_sensor_df(bmp_data)
+        imu_df = self.get_sensor_df(imu_data)
+        mag_df = self.get_sensor_df(mag_data)
+        mag_df = self.fix_mag_data(mag_df)
 
-        # puts dataframe in correct order
-        field_order = MEASUREMENT_FIELDS.copy()
-        field_order.insert(0, TIMESTAMP_COL_NAME)
-        self._df = self._df[field_order]
-        self._headers = self._headers[field_order]
-        if max_r is not None:
-            self._df = self._df.loc[:max_r]
-            
-        if min_r is not None:
-            self._df = self._df.loc[min_r - 1:] # so the initial values will not cause the first dt to be zero
+        self._df = pd.concat([bmp_df, imu_df, mag_df], ignore_index=True)
+        self._df.sort_values(by=TIMESTAMP_COL_NAME, inplace=True, ignore_index=True)
+
+        if max_t is not None:
+            self._df = self._df.loc[self._df['timestamp'] < max_t]
+        self._min_t = min_t
+        if min_t is not None:
+            self._df = self._df.loc[self._df['timestamp'] > min_t]
         self._iterator = self._df.itertuples(index=False, name=None)
-        # when reading rows, skip first row. This only happenes because the first row was reserved
-        # for the initial values. Initial values cant make the first dt zero.
-        next(self._iterator)
+        self._last_data = np.full(len(MEASUREMENT_FIELDS) + 1, None, dtype=object)
+        # calibration values (defaults if not provided)
+        self.acc_cal_offset = np.array(acc_cal_offset, dtype=np.float32) if acc_cal_offset is not None else np.zeros(3, dtype=np.float32)
+        self.gyro_cal_offset = np.array(gyro_cal_offset, dtype=np.float32) if gyro_cal_offset is not None else np.zeros(3, dtype=np.float32)
+        self.mag_cal_offset = np.array(mag_cal_offset, dtype=np.float32) if mag_cal_offset is not None else np.zeros(3, dtype=np.float32)
+        self.mag_cal_scale = np.array(mag_cal_scale, dtype=np.float32) if mag_cal_scale is not None else np.identity(3, dtype=np.float32)
+        self.dt: np.float32 = 0.0
 
 
     def fetch(self):
-        data: pd.Series | None = None
         try:
-            data = next(self._iterator)
-            return np.array(data)
+            last_timestamp = self._last_data[0]
+            
+            new_data = self._last_data.copy()
+            updated_flags = np.zeros(len(new_data), dtype=bool)
+
+            # loop over iterator
+            for row in self._iterator:
+                timestamp = row[0]
+                new_data[0] = timestamp
+
+                # check which entries in this row are not NaN (skip timestamp)
+                for i in range(1, len(row)):
+                    val = row[i]
+                    if val == val:  # isnan check
+                        new_data[i] = val
+                        updated_flags[i] = True
+
+                # If all fields except timestamp have been updated, break early
+                if np.all(updated_flags[1:]):
+                    self.dt = np.float32(timestamp - self._min_t) if last_timestamp is None else np.float32(timestamp - last_timestamp)
+                    
+                    n_meas = len(MEASUREMENT_FIELDS)
+                    self.measurements = np.array(new_data[1 : 1 + n_meas], dtype=np.float32)
+                    self.inputs = np.array(new_data[1 + n_meas : 1 + n_meas])
+                    mag_idx = slice(n_meas - 3, n_meas)
+                    mag = self.measurements[mag_idx]
+                    # calibrate
+                    mag = (mag - self.mag_cal_offset) @ self.mag_cal_scale
+                    mag_norm = np.linalg.norm(mag)
+                    self.measurements[mag_idx] =  mag / mag_norm
+
+                    self.measurements[1:4] = self.measurements[1:4] - self.acc_cal_offset
+                    self.measurements[4:7] = self.measurements[4:7] - self.gyro_cal_offset
+
+                    self._last_data = new_data
+                    return True
+            print("eof")
+            return False
+
         except StopIteration:
             print("eof")
-            return None
+            return False
     
-    def get_initial_vals(self):
-        initial_vals = np.full(len(MEASUREMENT_FIELDS) + 1, None, dtype=object)
-        i = self._df.head(1).index[0]
-        while any(val is None for val in initial_vals) and i < self._df.index[-1]:
-            row = self._df.loc[i].values
-            for col_index, val in enumerate(row):
-                if initial_vals[col_index] is None and pd.notna(val):
-                    initial_vals[col_index] = val
-            i += 1
-        return initial_vals
+    
+    def get_sensor_df(self, data):
+        headers = pd.read_csv(data, nrows=0)
+        needed_measurements = list((set(MEASUREMENT_FIELDS) | set([TIMESTAMP_COL_NAME])) & set(headers.columns))
+        return pd.read_csv(data, usecols=needed_measurements)
+    
+    def fix_mag_data(self, data):
+        df = data.copy()
+        replace_idx = list(range(10, len(df), 11))
+        cols_to_replace = df.columns[1:]
+        df.loc[replace_idx, cols_to_replace] = df.loc[[i - 1 for i in replace_idx], cols_to_replace].values
+        return df

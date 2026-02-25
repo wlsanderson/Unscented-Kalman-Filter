@@ -19,8 +19,8 @@ def run():
     ], dtype=object)
 
     # sailor
-    #min_t = 1373
-    #max_t = 1400 - 23
+    #min_t = 1375
+    #max_t = 1400
 
     # gov work avab
     #min_t = 902
@@ -32,7 +32,7 @@ def run():
     
     # lil frank
     #min_t = 1720
-    #max_t = 1865
+    #max_t = 1735
 
 
     # read calibration.yaml from the launch folder (if present)

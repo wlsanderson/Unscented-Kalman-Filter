@@ -167,9 +167,7 @@ class MotorBurnState(State):
         if np.abs(self.context.data_processor.measurements[3]) > 19:
             noise[3] *= 1e2
 
-        # an attempt to filter compressability effects
-        if self.context.ukf.X[5] > 1:
-            noise[0] *= self.context.ukf.X[5]
+        noise[0] *= max(self.context.ukf.X[5], 1)
         return noise
 
     @property
@@ -261,7 +259,9 @@ class FreeFallState(State):
     
     @property
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float32]:
-        return StateMeasurementNoise.FREEFALL.matrix
+        noise = StateMeasurementNoise.FREEFALL.matrix
+        noise[0] *= max(self.context.ukf.X[5], 1)
+        return noise
 
     @property
     def state_num(self) -> np.float32:

@@ -76,5 +76,5 @@ z = np.array([98698.09375000, 0.37742481, -0.56745690, 0.15212949, 52.48521805, 
 init_mag = np.array([-0.0100306, 0.3375313, -0.9412609], np.float32)
 
 
-ukf.update(z, 101861.625, init_mag, 2)
+ukf.update(z, 101861.625, init_mag, np.identity(3, dtype=np.float32), 2)
 

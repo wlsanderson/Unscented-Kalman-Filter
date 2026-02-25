@@ -79,13 +79,8 @@ class DataProcessor:
                     self.measurements[mag_idx] =  mag / mag_norm
 
                     self.measurements[1:4] = self.measurements[1:4] - self.acc_cal_offset
-                    #self.measurements[1] = -self.measurements[1]
-                    #self.measurements[2] = -self.measurements[2]
                     self.measurements[4:7] = self.measurements[4:7] - self.gyro_cal_offset
-                    #self.measurements[4] = -self.measurements[4]
-                    #self.measurements[5] = -self.measurements[5]
-                    # self.measurements[7] = -self.measurements[7]
-                    # self.measurements[8] = -self.measurements[8]
+
                     self._last_data = new_data
                     return True
             print("eof")

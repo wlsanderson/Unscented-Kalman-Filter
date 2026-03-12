@@ -1,5 +1,6 @@
 from UKF.context import Context
-from UKF.plotter import Plotter
+from UKF.eskf_context import ESKFContext
+from UKF.plotter import Plotter, ESKF_STATE_LABELS, ESKF_MEASUREMENT_LABELS
 from UKF.data_processor import DataProcessor
 from pathlib import Path
 
@@ -7,11 +8,16 @@ import numpy as np
 import yaml
 
 
+# Set to True to run the ESKF, False to run the UKF
+USE_ESKF = True
+
+
 def run():
-    launch_folder = Path("launch_data/government_work_launch_1_nc")
+    #launch_folder = Path("launch_data/government_work_launch_1_nc")
     #launch_folder = Path("launch_data/sailor")
     #launch_folder = Path("launch_data/lil_frank")
     #launch_folder = Path("launch_data/test")
+    launch_folder = Path("launch_data/jackpot_ab")
     launch_log = np.array([
         launch_folder / "BMP581_data.csv",
         launch_folder / "ICM45686_data.csv",
@@ -19,20 +25,28 @@ def run():
     ], dtype=object)
 
     # sailor
-    #min_t = 1375
-    #max_t = 1400
+    #min_t = 1360
+    #max_t = 1410
 
     # gov work avab
     #min_t = 902
-    #max_t = 1000 - 80
+    #max_t = 1000 - 60
 
     # gov work nc
-    min_t = 1273.42
-    max_t = 1291.4
+    #min_t = 1273.42 + 8
+    #max_t = 1297.4
     
     # lil frank
-    #min_t = 1720
-    #max_t = 1735
+    #min_t = 1700
+    #max_t = 1760
+
+    # jackpot nc
+    #min_t = 746
+    #max_t = 800
+
+    # jackpot ab
+    min_t = 1190 - 50
+    max_t = 1240
 
 
     # read calibration.yaml from the launch folder (if present)
@@ -55,7 +69,23 @@ def run():
     EXPORT_STATES_ON_EXIT = False
     EXPORT_STATES_FILENAME = "ukf_states.csv"
 
-    plotter = Plotter()
+    plotter = Plotter(
+        state_labels=ESKF_STATE_LABELS if USE_ESKF else None,
+        meas_labels=ESKF_MEASUREMENT_LABELS if USE_ESKF else None,
+        filter_name="ESKF" if USE_ESKF else "UKF",
+    )
+
+    # Try to load a reference altitude CSV from the launch folder.
+    # These are produced by a separate flight recorder on the rocket and contain
+    # an "estPressureAlt" column that can be overlaid on the filter output.
+    # Convention: the file is named after the base launch folder (without the
+    # board-specific suffix like "_nc" or "_avab").
+    ref_csv_candidates = sorted(launch_folder.glob("*.csv"))
+    sensor_names = {"BMP581_data.csv", "ICM45686_data.csv", "MMC5983MA_data.csv", "ukf_states.csv"}
+    for candidate in ref_csv_candidates:
+        if candidate.name not in sensor_names:
+            plotter.load_reference_altitude(candidate)
+            break
     data_processor = DataProcessor(
         bmp_data=launch_log[0],
         imu_data=launch_log[1],
@@ -67,7 +97,12 @@ def run():
         mag_cal_offset=mag_offset,
         mag_cal_scale=mag_scale,
     )
-    context = Context(data_processor, plotter)
+    if USE_ESKF:
+        context = ESKFContext(data_processor, plotter, hw_version=1)
+        print("Running ESKF")
+    else:
+        context = Context(data_processor, plotter)
+        print("Running UKF")
     run_data_loop(context)
     # After the run ends, optionally export the collected UKF states/timestamps
     if EXPORT_STATES_ON_EXIT:
@@ -78,7 +113,7 @@ def run():
             print(f"Failed to export states CSV: {e}")
     
 
-def run_data_loop(context: Context):
+def run_data_loop(context):
     while True:
         context.update()
         if context.shutdown_requested:

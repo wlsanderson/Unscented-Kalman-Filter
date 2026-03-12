@@ -161,3 +161,83 @@ GRAVITY = 9.798
 # log files
 TIMESTAMP_COL_NAME = "timestamp"
 TIMESTAMP_UNITS = 1
+
+
+# =============================================================================
+# ESKF (Error-State Extended Kalman Filter) Constants
+# =============================================================================
+
+ESKF_NOMINAL_DIM = 10
+"""Nominal state dimension: pos(3) + vel(3) + quat(4)"""
+
+ESKF_ERROR_DIM = 9
+"""Error state dimension: δpos(3) + δvel(3) + δθ(3)"""
+
+ESKF_MEASUREMENT_DIM = 4
+"""Measurement dimension: pressure(1) + magnetometer(3)"""
+
+ESKF_CONTROL_DIM = 6
+"""Control input dimension: accel(3) + gyro(3), from IMU in sensor frame"""
+
+ESKF_PRESSURE_VEL_COUPLING_SPEED = 20.0
+"""Speed (m/s) below which pressure corrections fully couple to velocity."""
+
+ESKF_PRESSURE_VEL_COUPLING_SHARPNESS = 1
+"""Sigmoid sharpness for the coupling transition.
+At 0.5: ~99% coupling at 20 m/s, ~50% at 30 m/s, ~1% at 40 m/s.
+Increase for a sharper cutoff (1.0 ≈ 5 m/s band, 2.0 ≈ 2.5 m/s band)."""
+
+
+class ESKFNominalStates(Enum):
+    """Index mapping for the 10-element nominal state vector."""
+    POS_X = 0
+    POS_Y = 1
+    POS_Z = 2
+    VEL_X = 3
+    VEL_Y = 4
+    VEL_Z = 5
+    QUAT_W = 6
+    QUAT_X = 7
+    QUAT_Y = 8
+    QUAT_Z = 9
+
+
+class ESKFErrorStates(Enum):
+    """Index mapping for the 9-element error state vector."""
+    DPOS_X = 0
+    DPOS_Y = 1
+    DPOS_Z = 2
+    DVEL_X = 3
+    DVEL_Y = 4
+    DVEL_Z = 5
+    DTHETA_X = 6
+    DTHETA_Y = 7
+    DTHETA_Z = 8
+
+
+ESKF_INITIAL_STATE_ESTIMATE = np.array([
+    0.0, 0.0, 0.0,         # position (x, y, z)
+    0.0, 0.0, 0.0,         # velocity (x, y, z)
+    1.0, 0.0, 0.0, 0.0,    # quaternion (w, x, y, z)
+])
+"""ESKF nominal state initial estimate (10-dim)"""
+
+ESKF_INITIAL_STATE_COV = np.diag([
+    1e-6, 1e-6, 1e-6,      # δposition
+    1e-6, 1e-6, 1e-6,      # δvelocity
+    1e-3, 1e-3, 1e-3,      # δθ (angular error)
+]).astype(np.float64)
+"""ESKF error-state initial covariance (9×9)"""
+
+
+ESKF_Q_DIAG = np.array([
+    1e-1, 1e-1, 1e-2,     # δposition
+    1e-1, 1e-1, 1e-2,     # δvelocity
+    1e-3, 1e-3, 1e-3,     # δθ
+], dtype=np.float64)
+"""Process noise diagonal (9 elements). Matches C eskf_q_diag."""
+
+ESKF_R_DIAG = np.array([
+    5e1, 1e-3, 1e-3, 1e-3,
+], dtype=np.float64)
+"""Measurement noise diagonal (4 elements). Matches C eskf_r_diag."""

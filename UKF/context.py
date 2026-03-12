@@ -63,7 +63,8 @@ class Context:
 
     def update(self):
         dt = np.float32(0.0)
-        rand_dt = random.uniform(0.0025e-6, 0.004e-6)
+        rand_dt = 0.000001
+
         while (dt < rand_dt):
             if (not self.data_processor.fetch()):
                 if self._plotter:
@@ -98,6 +99,8 @@ class Context:
             self._plotter.uncerts.append(np.diag(self.ukf.P))
             self._plotter.mahal.append(self.ukf.mahalanobis_dist)
             self._plotter.z_error_score.append(self.ukf.z_error_score)
+            # pressure altitude (zeroed during standby)
+            self._plotter.pressure_alt.append(self._compute_pressure_alt())
         
         # self._plotter.timestamps.append(self._timestamp)
 
@@ -112,7 +115,24 @@ class Context:
     def set_state_time(self):
         if self._plotter:
             self._plotter.state_times.append(self._timestamp)
-        pass
+
+    def _compute_pressure_alt(self) -> float:
+        """Compute altitude from raw pressure, zeroed to launch-pad level.
+
+        Uses the inverse barometric formula:
+            alt = 44330 * (1 - (p / p0) ^ (1/5.255876))
+        Returns 0.0 while the initial pressure reference hasn't been set or
+        during standby (since position is zeroed then).
+        """
+        from UKF.state import StandbyState
+        if self._initial_pressure is None or isinstance(self._flight_state, StandbyState):
+            return 0.0
+        p = float(self.data_processor.measurements[0])
+        p0 = float(self._initial_pressure)
+        if p <= 0 or p0 <= 0:
+            return 0.0
+        return 44330.0 * (1.0 - (p / p0) ** (1.0 / 5.255876))
+
 
     def calculate_initial_orientation_from_sensors(self, acc_imu_raw, mag_raw):
         """

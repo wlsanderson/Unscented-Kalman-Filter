@@ -2,7 +2,6 @@ from UKF.ukf import UKF
 from UKF.sigma_points import SigmaPoints
 from UKF.data_processor import DataProcessor
 from UKF.constants import STATE_DIM, ALPHA, BETA, KAPPA, MEASUREMENT_DIM, INITIAL_STATE_ESTIMATE, INITIAL_STATE_COV
-from UKF.ukf_functions import measurement_function
 from UKF.plotter import Plotter
 from UKF.state import State, StandbyState
 import numpy as np
@@ -59,7 +58,10 @@ class Context:
         state_estimate = np.float32(np.copy(INITIAL_STATE_ESTIMATE))
         self.ukf.X = state_estimate
         self.ukf.P = np.float32(np.copy(INITIAL_STATE_COV))
-        self.ukf.H = measurement_function
+        # Pressure (measurement 0) only affects position (reduced-state rows 0:3)
+        mask = np.ones((STATE_DIM - 1, MEASUREMENT_DIM), dtype=np.float32)
+        mask[3:, 0] = 0.0
+        self.ukf.cross_cov_mask = mask
 
     def update(self):
         dt = np.float32(0.0)
@@ -129,17 +131,12 @@ class Context:
         - The accelerometer at rest should measure the 'up' direction (specific force),
             so a level vehicle -> acc_vehicle ≈ [0,0,1] (after normalization).
         """
-        vehicle_to_imu = np.array([
-            [ 1.0/np.sqrt(2),  1.0/np.sqrt(2), 0.0],
-            [-1.0/np.sqrt(2),  1.0/np.sqrt(2), 0.0],
-            [ 0.0,      0.0,     1.0]
-        ], dtype=np.float32)
-        imu_to_vehicle = vehicle_to_imu.T
-        R_mag_to_vehicle = np.diag([1.0, 1.0, -1.0])
+        imu_to_vehicle = self.data_processor.imu_to_board
+        mag_to_vehicle = self.data_processor.mag_to_board
 
         # 1) Transform raw sensor vectors into VEHICLE frame using fixed, known transforms
         acc_vehicle = imu_to_vehicle @ np.asarray(acc_imu_raw, dtype=np.float32)
-        mag_vehicle = R_mag_to_vehicle @ np.asarray(mag_raw, dtype=np.float32)
+        mag_vehicle = mag_to_vehicle @ np.asarray(mag_raw, dtype=np.float32)
         # 2) Normalize (we only care about direction for attitude initialization)
         if np.linalg.norm(acc_vehicle) == 0 or np.linalg.norm(mag_vehicle) == 0:
             raise ValueError("Zero-length sensor vector passed to initialization")

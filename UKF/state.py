@@ -36,6 +36,8 @@ class State(ABC):
     __slots__ = (
         "context",
         "transient_time",
+        "_board_to_imu",
+        "_board_to_mag",
     )
 
     def __init__(self, context: "Context"):
@@ -43,6 +45,8 @@ class State(ABC):
         :param context: The UKF Context managing the state machine.
         """
         self.context = context
+        self._board_to_imu = context.data_processor.imu_to_board.T.copy()
+        self._board_to_mag = context.data_processor.mag_to_board.T.copy()
         self.context.ukf.F = self.state_transition_function
         self.context.ukf.Q = self.process_covariance_function
         self.context.ukf.H = self.measurement_function
@@ -87,11 +91,11 @@ class State(ABC):
         State transition function for Unscented Kalman Filter
         """
 
-    @abstractmethod
     def measurement_function(self, sigmas, init_pressure, init_mag):
         """
         Measurement function for Unscented Kalman Filter
         """
+        return measurement_function(sigmas, init_pressure, init_mag, self._board_to_imu, self._board_to_mag)
     
     def process_covariance_function(self, dt):
         """
@@ -137,9 +141,6 @@ class StandbyState(State):
 
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
-    
-    def measurement_function(self, sigmas, init_pressure, init_mag):
-        return measurement_function(sigmas, init_pressure, init_mag)    
 
 
 
@@ -166,8 +167,6 @@ class MotorBurnState(State):
             noise[2] *= 1e2
         if np.abs(self.context.data_processor.measurements[3]) > 19:
             noise[3] *= 1e2
-
-        noise[0] *= max(self.context.ukf.X[5], 1)
         return noise
 
     @property
@@ -194,8 +193,6 @@ class MotorBurnState(State):
 
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
-    def measurement_function(self, sigmas, init_pressure, init_mag):
-        return measurement_function(sigmas, init_pressure, init_mag)    
 
 
 class CoastState(State):
@@ -214,10 +211,8 @@ class CoastState(State):
     
     @property
     def measurement_noise_diagonals(self) -> npt.NDArray[np.float32]:
-        noise = StateMeasurementNoise.COAST.matrix
+        return StateMeasurementNoise.COAST.matrix
         
-        noise[0] *= max(self.context.ukf.X[5], 1)
-        return noise
 
     @property
     def state_num(self) -> np.float32:
@@ -239,8 +234,6 @@ class CoastState(State):
 
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
-    def measurement_function(self, sigmas, init_pressure, init_mag):
-        return measurement_function(sigmas, init_pressure, init_mag)    
 
 
 class FreeFallState(State):
@@ -290,8 +283,6 @@ class FreeFallState(State):
 
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
-    def measurement_function(self, sigmas, init_pressure, init_mag):
-        return measurement_function(sigmas, init_pressure, init_mag)    
 
 
 class LandedState(State):
@@ -325,5 +316,3 @@ class LandedState(State):
 
     def state_transition_function(self, sigma_points, dt, u):
         return state_transition_function(sigma_points, dt, u)
-    def measurement_function(self, sigmas, init_pressure, init_mag):
-        return measurement_function(sigmas, init_pressure, init_mag)    

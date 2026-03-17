@@ -28,6 +28,7 @@ class UKF:
         "pred_z",
         "mahalanobis_dist",
         "z_error_score",
+        "cross_cov_mask",
     )
 
     def __init__(self, dim_x: int, dim_z: int, points: SigmaPoints):
@@ -52,6 +53,7 @@ class UKF:
         self.pred_z = None
         self.mahalanobis_dist = None
         self.z_error_score = None
+        self.cross_cov_mask = None
 
 
     def predict(self, dt, u):
@@ -84,6 +86,8 @@ class UKF:
         innovation_cov_inv = np.linalg.inv(innovation_cov)
         P_cross_covariance = self._calculate_cross_cov(self.X, pred_z)
         kalman_gain = P_cross_covariance @ innovation_cov_inv
+    
+        kalman_gain[3:, 0] = np.float32(0.0)
 
         residual = np.subtract(z, pred_z)
         self.mahalanobis_dist = residual.T @ innovation_cov_inv @ residual
@@ -96,8 +100,14 @@ class UKF:
         delta_q = q.from_rotation_vector(delta_x[self._rotvec_idx])
         self.X[self._vec_idx] += delta_x[self._vec_idx]
         self.X[self._quat_idx] = q.as_float_array((delta_q * quat))
-        new_P = self.P - np.dot(np.dot(kalman_gain, innovation_cov), np.transpose(kalman_gain))
-        self.P = new_P
+        # Joseph form: P_new = P - K @ Pxz^T - Pxz @ K^T + K @ S @ K^T
+        # PSD for any K (including suboptimal/masked), and is consistent with
+        # the masked state update so P correctly reflects the information actually used.
+        new_P = (self.P
+                 - kalman_gain @ P_cross_covariance.T
+                 - P_cross_covariance @ kalman_gain.T
+                 + kalman_gain @ innovation_cov @ kalman_gain.T)
+        self.P = np.float32(0.5 * (new_P + new_P.T))  # symmetrize for numerical stability
 
 
     def _unscented_transform_F(self, sigmas: npt.NDArray[np.float32], Wm, Wc, X, noise_cov = None):

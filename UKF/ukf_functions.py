@@ -3,49 +3,41 @@ import numpy as np
 import numpy.typing as npt
 import quaternion as q
 
-SQRT2 = np.sqrt(np.float32(2))
 
-def measurement_function(sigmas, init_pressure, mag_world):
+def measurement_function(sigmas, init_pressure, mag_world, board_to_imu, board_to_mag):
     pressure = init_pressure * np.power(1.0 - (sigmas[2] / 44330.0), 5.255876)
     quat_state = sigmas[-4:]
     quat_state = q.from_float_array(quat_state).normalized()
 
-    
+    # global accel is put into vehicle/board reference frame
     global_acc = q.quaternion(0, *sigmas[6:9])
-    # global accel is put into vehicle reference frame
-    acc_vehicle_frame = quat_state.conjugate() * global_acc * quat_state
-    # rotates vehicle frame accel 45 degrees ccw to line up with how imu is mounted on board
-    acc_x = acc_vehicle_frame.x/SQRT2 + acc_vehicle_frame.y/SQRT2
-    acc_y = -acc_vehicle_frame.x/SQRT2 + acc_vehicle_frame.y/SQRT2
-    acc_z = acc_vehicle_frame.z
-    if np.abs(acc_x) > 19.2882:
-        acc_x = np.clip(acc_x, -19.2882, 19.2882, dtype=np.float32)
-    if np.abs(acc_y) > 19.6925:
-        acc_y = np.clip(acc_y, -19.6925, 19.6925, dtype=np.float32)
+    acc_vehicle_q = quat_state.conjugate() * global_acc * quat_state
+    acc_vehicle = np.array([acc_vehicle_q.x, acc_vehicle_q.y, acc_vehicle_q.z], dtype=np.float32)
+    # rotate board frame accel to imu sensor frame
+    acc_imu = board_to_imu @ acc_vehicle
+    if np.abs(acc_imu[0]) > 19.2882:
+        acc_imu[0] = np.clip(acc_imu[0], -19.2882, 19.2882, dtype=np.float32)
+    if np.abs(acc_imu[1]) > 19.6925:
+        acc_imu[1] = np.clip(acc_imu[1], -19.6925, 19.6925, dtype=np.float32)
 
-    # same process with gyro: rotate to vehicle frame, then rotate 45 degrees
-    global_gyro = sigmas[9:12] * (180.0 / np.pi)
-    gyro_x = global_gyro[0]/SQRT2 + global_gyro[1]/SQRT2
-    gyro_y = -global_gyro[0]/SQRT2 + global_gyro[1]/SQRT2
-    gyro_z = global_gyro[2]
+    # gyro: body frame rad/s -> deg/s, then rotate to imu sensor frame
+    body_gyro_dps = sigmas[9:12] * (180.0 / np.pi)
+    gyro_imu = board_to_imu @ body_gyro_dps
 
-    R_mag_to_vehicle = np.float32(np.diag([1.0, 1.0, -1.0]))
-    R_vehicle_to_mag = R_mag_to_vehicle.T
+    # mag: rotate world mag to vehicle frame, then to mag sensor frame
     mag_world_q = q.quaternion(np.float32(0.0), *mag_world)
-
-    # rotate mag_world into VEHICLE frame:
     mag_vehicle_q = quat_state.conjugate() * mag_world_q * quat_state
     mag_vehicle = np.array([mag_vehicle_q.x, mag_vehicle_q.y, mag_vehicle_q.z], dtype=np.float32)
-    # convert VEHICLE-frame mag into sensor mag frame using vehicle->mag_sensor (transpose of R_mag_to_vehicle)
-    mag_sensor_pred = R_vehicle_to_mag @ mag_vehicle
+    mag_sensor_pred = board_to_mag @ mag_vehicle
+
     return np.array([
         pressure,
-        acc_x,
-        acc_y,
-        acc_z,
-        gyro_x,
-        gyro_y,
-        gyro_z,
+        acc_imu[0],
+        acc_imu[1],
+        acc_imu[2],
+        gyro_imu[0],
+        gyro_imu[1],
+        gyro_imu[2],
         mag_sensor_pred[0],
         mag_sensor_pred[1],
         mag_sensor_pred[2],

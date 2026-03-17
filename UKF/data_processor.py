@@ -18,10 +18,13 @@ class DataProcessor:
         "gyro_cal_offset",
         "mag_cal_offset",
         "mag_cal_scale",
+        "imu_to_board",
+        "mag_to_board",
     )
 
     def __init__(self, bmp_data: Path, imu_data: Path, mag_data: Path, min_t = None, max_t = None,
-                 acc_cal_offset=None, gyro_cal_offset=None, mag_cal_offset=None, mag_cal_scale=None):
+                 acc_cal_offset=None, gyro_cal_offset=None, mag_cal_offset=None, mag_cal_scale=None,
+                 imu_to_board=None, mag_to_board=None):
         bmp_df = self.get_sensor_df(bmp_data)
         imu_df = self.get_sensor_df(imu_data)
         mag_df = self.get_sensor_df(mag_data)
@@ -42,6 +45,8 @@ class DataProcessor:
         self.gyro_cal_offset = np.array(gyro_cal_offset, dtype=np.float32) if gyro_cal_offset is not None else np.zeros(3, dtype=np.float32)
         self.mag_cal_offset = np.array(mag_cal_offset, dtype=np.float32) if mag_cal_offset is not None else np.zeros(3, dtype=np.float32)
         self.mag_cal_scale = np.array(mag_cal_scale, dtype=np.float32) if mag_cal_scale is not None else np.identity(3, dtype=np.float32)
+        self.imu_to_board = np.array(imu_to_board, dtype=np.float32) if imu_to_board is not None else np.eye(3, dtype=np.float32)
+        self.mag_to_board = np.array(mag_to_board, dtype=np.float32) if mag_to_board is not None else np.eye(3, dtype=np.float32)
         self.dt: np.float32 = 0.0
 
 

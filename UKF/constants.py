@@ -95,16 +95,16 @@ class StateProcessCovariance(Enum):
     MOTOR_BURN = (
         [1, 1, 1e-3, # position (x, y, z)
          1e-1, 1e-1, 1e-3, # velocity (x, y, z)
-         1, 1, 3e1, # acceleration (x, y, z)
+         1, 1, 1e3, # acceleration (x, y, z)
          1, 1, 1, # gyro (x, y, z)
          1, 1, 1] # orientation (r, p, y)
         ,)
     COAST = (
-        [1e-2, 1e-2, 1e-2, # position (x, y, z)
-         1e-3, 1e-3, 1e-3, # velocity (x, y, z)
-         1e1, 1e1, 1e1, # acceleration (x, y, z)
-         1e3, 1e3, 1e3, # gyro (x, y, z)
-         1e1, 1e1, 1e1] # orientation (r, p, y)
+        [1e-1, 1e-1, 1e-1, # position (x, y, z)
+         1e-1, 1e-1, 1e-3, # velocity (x, y, z)
+         1e-1, 1e-1, 1e-1, # acceleration (x, y, z)
+         1, 1, 1, # gyro (x, y, z)
+         1, 1, 1] # orientation (r, p, y)
         ,)
     FREEFALL = (
         [1e-1, 1e-1, 1e-1, # position (x, y, z)
@@ -130,11 +130,11 @@ class StateProcessCovariance(Enum):
 class StateMeasurementNoise(Enum):
     """Enum that represents measurement noise covariance diagonal matrices for each flight state"""
 
-    STANDBY = ([5e1, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3, 1e-2, 1e-2, 1e-2],)
-    MOTOR_BURN = ([1e2, 5e-2, 5e-2, 5e-2, 1, 1, 1, 1e-2, 1e-2, 1e-2],)
-    COAST = ([5e2, 1e-2, 1e-2, 1e-2, 1e-1, 1e-1, 1e-1, 1e-3, 1e-3, 1e-3],)
-    FREEFALL = ([5e1, 1e-1, 1e-1, 1e-1, 1e2, 1e2, 1e2, 1e-1, 1e-1, 1e-1],)
-    LANDED = ([5e1, 1e-2, 1e-2, 1e-2, 1e1, 1e1, 1e1, 1e-1, 1e-1, 1e-1],)
+    STANDBY = ([1e1, 1e-2, 1e-2, 1e-2, 1e-3, 1e-3, 1e-3, 1e-2, 1e-2, 1e-2],)
+    MOTOR_BURN = ([1e1, 1e-2, 1e-2, 1e-2, 1e2, 1e2, 1e2, 1e-2, 1e-2, 1e-2],)
+    COAST = ([1e1, 1e-3, 1e-3, 1e-3, 1, 1, 1, 1e-1, 1e-1, 1e-1],)
+    FREEFALL = ([1e1, 1e-1, 1e-1, 1e-1, 1e2, 1e2, 1e2, 1e-1, 1e-1, 1e-1],)
+    LANDED = ([1e1, 1e-2, 1e-2, 1e-2, 1e1, 1e1, 1e1, 1e-1, 1e-1, 1e-1],)
 
     @property
     def matrix(self) -> npt.NDArray:

@@ -3,6 +3,13 @@ from UKF.constants import STATE_DIM, ALPHA, BETA, KAPPA, MEASUREMENT_DIM, INITIA
 from UKF.ukf import UKF
 from UKF.sigma_points import SigmaPoints
 from UKF.ukf_functions import state_transition_function, measurement_function, print_c_array
+from functools import partial
+
+a = 1.0 / np.sqrt(2)
+imu_to_board = np.array([[a, -a, 0], [a, a, 0], [0, 0, 1]], dtype=np.float32)
+mag_to_board = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, -1]], dtype=np.float32)
+board_to_imu = imu_to_board.T
+board_to_mag = mag_to_board.T
 
 
 sigma_points = SigmaPoints(
@@ -36,7 +43,7 @@ ukf.P = np.array([
     [0.00001170, 0.00000687, -0.00000044, 0.00106384, 0.00068562, 0.00032000, 0.00636758, 0.00405293, 0.00186728, -0.01793060, -0.00366167, 0.00887244, 0.01567620, -0.01751348, 0.05903281,]
     ], dtype=np.float32)
 ukf.F = state_transition_function
-ukf.H = measurement_function
+ukf.H = partial(measurement_function, board_to_imu=board_to_imu, board_to_mag=board_to_mag)
 ukf._sigmas_f = np.array([
         [-59.13305283, 16.82010078, 238.64831543, -15.86674595, 3.31964636, 63.72105789, 0.23608579, -0.30229759, -0.62685239, 1.47267270, 0.00057240, 0.04090099, 0.80214113, 0.06952231, 0.52494264, -0.27599174, ],
         [-54.15172577, 17.43949699, 238.74282837, -14.16010666, 3.52899432, 63.75948334, 0.23609319, -0.30229652, -0.62685198, 1.47267270, 0.00057240, 0.04090099, 0.80214196, 0.06952318, 0.52494210, -0.27599010, ],

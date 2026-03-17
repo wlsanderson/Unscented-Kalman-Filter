@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 # note: pandas is imported locally in export_states_csv to avoid a global dependency
 import plotly.graph_objects as go
 from dash import Dash, dcc, html, Output, Input
@@ -32,9 +33,12 @@ class Plotter:
         "state_times",
         "z_error_score",
         "uncerts",
+        "bmp_data_path",
+        "min_t",
+        "max_t"
     )
 
-    def __init__(self):
+    def __init__(self, bmp_data_path: Path | None = None, min_t: float | None = None, max_t: float | None = None):
 
         self.mahal = []
         self.z_error_score = []
@@ -44,6 +48,9 @@ class Plotter:
         self.timestamps = []
         self.state_times = []
         self.uncerts = []
+        self.bmp_data_path: Path | None = bmp_data_path
+        self.min_t: float | None = min_t
+        self.max_t: float | None = max_t
 
     def clear_history(self) -> None:
         """Clear all stored time-series data in the plotter.
@@ -107,6 +114,22 @@ class Plotter:
         mahal = np.array(self.mahal, dtype=np.float64) if self.mahal else None
         z_error_score = np.array(self.z_error_score, dtype=np.float64) if self.z_error_score else None
 
+        # Load raw BMP pressure altitude (zeroed to min_t) if a path was provided
+        press_alt_times = None
+        press_alt_values = None
+        if self.bmp_data_path is not None and Path(self.bmp_data_path).exists():
+            bmp_df = pd.read_csv(self.bmp_data_path)
+            # keep only rows that have a pressure reading
+            bmp_df = bmp_df.dropna(subset=["pressure"])
+            if self.min_t is not None:
+                bmp_df = bmp_df[bmp_df["timestamp"] >= self.min_t]
+                bmp_df = bmp_df[bmp_df["timestamp"] <= self.max_t]
+            if not bmp_df.empty:
+                ref_pressure = float(bmp_df.iloc[0]["pressure"])
+                alt_raw = 44330.0 * (1.0 - (bmp_df["pressure"].values / ref_pressure) ** (1.0 / 5.255876))
+                press_alt_times = (bmp_df["timestamp"].values - bmp_df["timestamp"].values[0]) / TIMESTAMP_UNITS
+                press_alt_values = alt_raw
+
 
         if X_uncerts is not None:
             X_pos_sigma = np.zeros(X_data.shape)
@@ -164,7 +187,8 @@ class Plotter:
                 dcc.Checklist(
                     id="mahal_toggle",
             options=[{"label": "Mahalanobis Distance", "value": "mahal"}] +
-                [{"label": f"Z Error Score: {label}", "value": f"z_{label}"} for label in MEASUREMENT_FIELDS],
+                [{"label": f"Z Error Score: {label}", "value": f"z_{label}"} for label in MEASUREMENT_FIELDS] +
+                ([{"label": "Pressure Altitude (raw)", "value": "pressure_alt"}] if press_alt_values is not None else []),
                     value=[],
                     labelStyle={"display": "block", "color": "white"}
                 ),
@@ -225,6 +249,14 @@ class Plotter:
                 for i, label in enumerate(MEASUREMENT_FIELDS):
                     if f"z_{label}" in toggles:
                         new_fig.add_trace(go.Scatter(x=timestamps, y=z_error_score[:, i], name=f"Z Error Score: {label}"))
+
+            if press_alt_values is not None and "pressure_alt" in toggles:
+                new_fig.add_trace(go.Scatter(
+                    x=press_alt_times,
+                    y=press_alt_values,
+                    name="Pressure Altitude (raw)",
+                    line=dict(dash="dash"),
+                ))
 
             new_fig.update_layout(
                 title="UKF State Comparison (Dash)",

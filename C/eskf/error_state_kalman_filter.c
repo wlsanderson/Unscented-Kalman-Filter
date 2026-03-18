@@ -16,20 +16,20 @@ static float F_d_data[N * N];        /* discrete error Jacobian  */
 static float Q_d_data[N * N];        /* discrete process noise   */
 static float FP_data[N * N];         /* F @ P                    */
 static float FP_FT_data[N * N];      /* F @ P @ F^T              */
-static float HT_data[N * M];         /* H^T (9×4)                */
-static float PHT_data[N * M];        /* P @ H^T (9×4)            */
-static float HPHT_data[M * M];       /* H @ P @ H^T (4×4)        */
+static float HT_data[N * M];         /* H^T (9x4)                */
+static float PHT_data[N * M];        /* P @ H^T (9x4)            */
+static float HPHT_data[M * M];       /* H @ P @ H^T (4x4)        */
 static float S_data[M * M];          /* S = HPHT + R             */
 static float S_inv_data[M * M];      /* S^{-1}                   */
-static float K_data[N * M];          /* Kalman gain (9×4)        */
+static float K_data[N * M];          /* Kalman gain (9x4)        */
 static float IKH_data[N * N];        /* I − K @ H                */
 static float IKH_P_data[N * N];      /* (I−KH) @ P               */
 static float IKH_P_IKHT_data[N * N]; /* (I−KH) @ P @ (I−KH)^T   */
 static float IKHT_data[N * N];       /* (I−KH)^T                 */
-static float KR_data[N * M];         /* K @ R (9×4)              */
+static float KR_data[N * M];         /* K @ R (9x4)              */
 static float KRKT_data[N * N];       /* K @ R @ K^T              */
-static float KT_data[M * N];         /* K^T (4×9)                */
-static float temp_nn_data[N * N];    /* generic N×N temp         */
+static float KT_data[M * N];         /* K^T (4x9)                */
+static float temp_nn_data[N * N];    /* generic NxN temp         */
 
 /* matrix_instance_f32 wrappers (set once, reused) */
 static matrix_instance_f32 F_d = {N, N, F_d_data};
@@ -168,7 +168,7 @@ void eskf_update(ESKF *eskf, const float z[ESKF_MEASUREMENT_DIM]) {
   eskf_measurement_function(eskf->x_nom, eskf->initial_pressure, eskf->mag_world,
                             eskf->R_board_to_mag, z_pred);
 
-  /* ---- Measurement Jacobian H (4×9) ---- */
+  /* ---- Measurement Jacobian H (4x9) ---- */
   float H_data[M * N];
   matrix_instance_f32 H = {M, N, H_data};
   eskf_measurement_jacobian(eskf->x_nom, eskf->initial_pressure, eskf->mag_world,
@@ -184,12 +184,12 @@ void eskf_update(ESKF *eskf, const float z[ESKF_MEASUREMENT_DIM]) {
   matrix_instance_f32 P_mat = {N, N, eskf->P};
   matrix_instance_f32 R_mat = {M, M, eskf->R};
 
-  mat_trans_f32(&H, &HT);             /* HT = H^T (9×4) */
+  mat_trans_f32(&H, &HT);             /* HT = H^T (9x4) */
   mat_mult_f32(&P_mat, &HT, &PHT);    /* PHT = P @ H^T  */
   mat_mult_f32(&H, &PHT, &HPHT);      /* HPHT = H @ PHT */
   mat_add_f32(&HPHT, &R_mat, &S_mat); /* S = HPHT + R   */
 
-  /* ---- S inverse (4×4) ---- */
+  /* ---- S inverse (4x4) ---- */
   mat_inverse_f32(&S_mat, &S_inv);
 
   /* ---- Kalman gain: K = P @ H^T @ S^{-1} ---- */
@@ -279,14 +279,14 @@ void eskf_set_measurement(ESKF *eskf, const float *measurements) {
 
 /* ==================================================================== */
 
-/* ---- helper: 3×3 matrix-vector multiply (row-major) --------------- */
+/* ---- helper: 3x3 matrix-vector multiply (row-major) --------------- */
 static void mat3_vec3_mult(const float R[9], const float v[3], float out[3]) {
   out[0] = R[0] * v[0] + R[1] * v[1] + R[2] * v[2];
   out[1] = R[3] * v[0] + R[4] * v[1] + R[5] * v[2];
   out[2] = R[6] * v[0] + R[7] * v[1] + R[8] * v[2];
 }
 
-/* ---- helper: 3×3 transpose-vector multiply (R^T @ v) -------------- */
+/* ---- helper: 3x3 transpose-vector multiply (R^T @ v) -------------- */
 static void mat3T_vec3_mult(const float R[9], const float v[3], float out[3]) {
   out[0] = R[0] * v[0] + R[3] * v[1] + R[6] * v[2];
   out[1] = R[1] * v[0] + R[4] * v[1] + R[7] * v[2];

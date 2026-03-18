@@ -25,7 +25,12 @@ class DataProcessor:
         bmp_df = self.get_sensor_df(bmp_data)
         imu_df = self.get_sensor_df(imu_data)
         mag_df = self.get_sensor_df(mag_data)
-        mag_df = self.fix_mag_data(mag_df)
+        
+        # fixing mag data for datasets that had flipped readings
+        mag_flip_datasets = ["government_work", "lil_frank", "sailor", "test"]
+        if any(item in str(mag_data) for item in mag_flip_datasets):
+            print("yes")
+            mag_df = self.fix_mag_data(mag_df)
 
         self._df = pd.concat([bmp_df, imu_df, mag_df], ignore_index=True)
         self._df.sort_values(by=TIMESTAMP_COL_NAME, inplace=True, ignore_index=True)

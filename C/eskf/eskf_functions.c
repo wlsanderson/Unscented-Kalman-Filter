@@ -8,21 +8,21 @@
  * ESKF dynamics, measurement model, and Jacobians
  * ==================================================================== */
 
-/* ---- helper: 3×3 matrix-vector multiply (row-major) --------------- */
+/* ---- helper: 3x3 matrix-vector multiply (row-major) --------------- */
 static void mat3_vec3_mult(const float M[9], const float v[3], float out[3]) {
   out[0] = M[0] * v[0] + M[1] * v[1] + M[2] * v[2];
   out[1] = M[3] * v[0] + M[4] * v[1] + M[5] * v[2];
   out[2] = M[6] * v[0] + M[7] * v[1] + M[8] * v[2];
 }
 
-/* ---- helper: 3×3 transpose-vector multiply (R^T @ v) -------------- */
+/* ---- helper: 3x3 transpose-vector multiply (R^T @ v) -------------- */
 static void mat3T_vec3_mult(const float M[9], const float v[3], float out[3]) {
   out[0] = M[0] * v[0] + M[3] * v[1] + M[6] * v[2];
   out[1] = M[1] * v[0] + M[4] * v[1] + M[7] * v[2];
   out[2] = M[2] * v[0] + M[5] * v[1] + M[8] * v[2];
 }
 
-/* ---- helper: 3×3 @ 3×3, both row-major ---------------------------- */
+/* ---- helper: 3x3 @ 3x3, both row-major ---------------------------- */
 static void mat3_mat3_mult(const float A[9], const float B[9], float C[9]) {
   for (int r = 0; r < 3; ++r) {
     for (int c = 0; c < 3; ++c) {
@@ -35,7 +35,7 @@ static void mat3_mat3_mult(const float A[9], const float B[9], float C[9]) {
   }
 }
 
-/* ---- helper: build 3×3 skew-symmetric into flat row-major --------- */
+/* ---- helper: build 3x3 skew-symmetric into flat row-major --------- */
 static void skew_flat(const float v[3], float S[9]) {
   S[0] = 0.0F;
   S[1] = -v[2];

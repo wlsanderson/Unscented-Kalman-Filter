@@ -73,9 +73,9 @@ extern const float eskf_r_diag[ESKF_MEASUREMENT_DIM];
 /* determined by the ESKF quaternion state.                            */
 
 /* v2 hardware (current) */
-extern const float eskf_v2_R_imu_to_board[9]; /* 3×3 row-major */
-extern const float eskf_v2_R_board_to_mag[9]; /* 3×3 row-major */
+extern const float eskf_v2_R_imu_to_board[9]; /* 3x3 row-major */
+extern const float eskf_v2_R_board_to_mag[9]; /* 3x3 row-major */
 
 /* v1 hardware (legacy) */
-extern const float eskf_v1_R_imu_to_board[9]; /* 3×3 row-major */
-extern const float eskf_v1_R_board_to_mag[9]; /* 3×3 row-major */
+extern const float eskf_v1_R_imu_to_board[9]; /* 3x3 row-major */
+extern const float eskf_v1_R_board_to_mag[9]; /* 3x3 row-major */

@@ -3,19 +3,13 @@ import numpy as np
 import plotly.graph_objects as go
 from dash import Dash, dcc, html, Output, Input
 from pathlib import Path
-from UKF.constants import (
-    TIMESTAMP_UNITS,
-    MEASUREMENT_FIELDS,
-    STATE_DIM,
-)
-from UKF.constants import States
+from UKF.constants import TIMESTAMP_UNITS
 import socket
 
 
-# ESKF-specific labels (matching ESKFNominalStates ordering — 10 states)
+# ESKF-specific labels (matching reduced 6-state ordering)
 ESKF_STATE_LABELS = [
-    "POS_X", "POS_Y", "POS_Z",
-    "VEL_X", "VEL_Y", "VEL_Z",
+    "POS_Z", "VEL_Z",
     "QUAT_W", "QUAT_X", "QUAT_Y", "QUAT_Z",
 ]
 ESKF_MEASUREMENT_LABELS = ["pressure", "mag_x", "mag_y", "mag_z"]
@@ -47,19 +41,16 @@ class Plotter:
         "_ref_alt",
         "_state_labels",
         "_meas_labels",
-        "_filter_name",
     )
 
-    def __init__(self, state_labels=None, meas_labels=None, filter_name="UKF"):
+    def __init__(self, state_labels, meas_labels):
         """
         Parameters
         ----------
-        state_labels : list[str] | None
-            Labels for each nominal state index. Defaults to UKF States enum names.
-        meas_labels : list[str] | None
-            Labels for each measurement index. Defaults to UKF MEASUREMENT_FIELDS.
-        filter_name : str
-            Display name for the filter ("UKF" or "ESKF").
+        state_labels : list[str]
+            Labels for each nominal state index..
+        meas_labels : list[str]
+            Labels for each measurement index.
         """
         self.mahal = []
         self.z_error_score = []
@@ -73,16 +64,8 @@ class Plotter:
         self.pressure_nis_ref = []
         self._ref_alt_time = None   # np.ndarray | None – seconds relative to reference launch
         self._ref_alt = None        # np.ndarray | None – zeroed pressure altitude
-
-        if state_labels is not None:
-            self._state_labels = list(state_labels)
-        else:
-            self._state_labels = [States(i).name for i in range(STATE_DIM)]
-        if meas_labels is not None:
-            self._meas_labels = list(meas_labels)
-        else:
-            self._meas_labels = list(MEASUREMENT_FIELDS)
-        self._filter_name = filter_name
+        self._state_labels = list(state_labels)
+        self._meas_labels = list(meas_labels)
 
     def clear_history(self) -> None:
         """Clear all stored time-series data in the plotter.
@@ -122,7 +105,7 @@ class Plotter:
 
         csv_path = Path(csv_path)
         if not csv_path.exists():
-            print(f"Plotter: reference CSV not found – {csv_path}")
+            print(f"Plotter: reference CSV not found - {csv_path}")
             return
 
         df = _pd.read_csv(csv_path, low_memory=False)
@@ -230,7 +213,7 @@ class Plotter:
         n_states = X_data.shape[1] if X_data.ndim == 2 else len(self._state_labels)
         state_labels = self._state_labels
         meas_labels = self._meas_labels
-        filter_name = self._filter_name
+        filter_name = "ESKF"
 
         if X_uncerts is not None:
             n_cov = X_uncerts.shape[1] if X_uncerts.ndim == 2 else 0

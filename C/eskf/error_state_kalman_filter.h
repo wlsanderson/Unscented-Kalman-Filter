@@ -14,7 +14,7 @@ typedef struct ESKF {
   // nominal state (10)
   float x_nom[ESKF_NOMINAL_DIM];
 
-  // error-state covariance P (9×9 row-major)
+  // error-state covariance P (9x9 row-major)
   float P[ESKF_ERROR_DIM * ESKF_ERROR_DIM];
 
   // process & measurement noise (diag stored as full matrices)
@@ -26,8 +26,8 @@ typedef struct ESKF {
   float mag_world[3];
 
   // sensor-to-board rotation matrices (set per hardware version in eskf_init)
-  float R_imu_to_board[9]; /* 3×3 row-major: IMU sensor frame → board frame */
-  float R_board_to_mag[9]; /* 3×3 row-major: board frame → mag sensor frame */
+  float R_imu_to_board[9]; /* 3x3 row-major: IMU sensor frame → board frame */
+  float R_board_to_mag[9]; /* 3x3 row-major: board frame → mag sensor frame */
 
   // accumulator for INIT phase bias estimation
   float accel_accum[3];
@@ -99,8 +99,8 @@ void eskf_set_measurement(ESKF *eskf, const float *measurements);
  *
  * @param imu_accel       Raw accelerometer reading (sensor frame)
  * @param mag_field       Raw magnetometer reading (sensor frame)
- * @param R_imu           3×3 row-major: IMU sensor → board frame rotation
- * @param R_mag           3×3 row-major: board frame → mag sensor rotation
+ * @param R_imu           3x3 row-major: IMU sensor → board frame rotation
+ * @param R_mag           3x3 row-major: board frame → mag sensor rotation
  * @param init_quaternion Output quaternion [w,x,y,z]
  * @param mag_world_frame Output world-frame magnetic field vector
  */

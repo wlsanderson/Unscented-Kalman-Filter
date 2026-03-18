@@ -1,19 +1,16 @@
 """
 Error-State Extended Kalman Filter (ESKF).
 
-Nominal state (10): [pos(3), vel(3), quat(4)]
-Error state   (9): [δpos(3), δvel(3), δθ(3)]
+Nominal state (6): [pos_z, vel_z, quat(4)]
+Error state   (5): [δpos_z, δvel_z, δθ(3)]
 Measurement   (4): [pressure, mag_x, mag_y, mag_z]
 Control       (6): [accel_xyz, gyro_xyz] — calibrated IMU in sensor frame
 
 The filter operates by:
-  1. Propagating the nominal state with IMU inputs (nonlinear)
-  2. Propagating the error-state covariance with linearized Jacobians
-  3. Correcting with pressure + magnetometer measurements via linearized H
-  4. Injecting the error into the nominal state and resetting the error to zero
-
-IMU biases are estimated during an init phase and then subtracted as fixed
-calibration offsets — they are NOT part of the online state vector.
+    1. Propagating the nominal state with IMU inputs (nonlinear)
+    2. Propagating the error-state covariance with linearized Jacobians
+    3. Correcting with pressure + magnetometer measurements via linearized H
+    4. Injecting the error into the nominal state and resetting the error to zero
 """
 
 import numpy as np
@@ -59,13 +56,13 @@ class ESKF:
         self._dim_nom = dim_nom
         self._dim_err = dim_err
         self._dim_z = dim_z
-        self._quat_idx = 6  # start index of quaternion in nominal state
+        self._quat_idx = 2  # start index of quaternion in nominal state
 
         # state
-        self.x_nom = np.zeros(dim_nom, dtype=np.float64)
-        self.x_nom[6] = 1.0  # identity quaternion w=1
-        self.P = np.eye(dim_err, dtype=np.float64)
-        self.R = np.eye(dim_z, dtype=np.float64)
+        self.x_nom = np.zeros(dim_nom, dtype=np.float32)
+        self.x_nom[self._quat_idx] = np.float32(1.0)  # identity quaternion w=1
+        self.P = np.eye(dim_err, dtype=np.float32)
+        self.R = np.eye(dim_z, dtype=np.float32)
 
         # injectable function handles (set by State subclasses)
         self.nominal_predict_func = None
@@ -75,9 +72,9 @@ class ESKF:
         self.measurement_jacobian_func = None
 
         # debug
-        self.pred_z = np.zeros(dim_z, dtype=np.float64)
+        self.pred_z = np.zeros(dim_z, dtype=np.float32)
         self.mahalanobis_dist = 0.0
-        self.z_error_score = np.zeros(dim_z, dtype=np.float64)
+        self.z_error_score = np.zeros(dim_z, dtype=np.float32)
 
     def predict(self, dt: float, u: npt.NDArray):
         """ESKF prediction step."""
@@ -105,7 +102,7 @@ class ESKF:
         z_pred = self.measurement_func(self.x_nom, init_pressure, init_mag)
         self.pred_z = z_pred
 
-        # measurement Jacobian (4x9)
+        # measurement Jacobian (4x5)
         H = self.measurement_jacobian_func(self.x_nom, init_pressure, init_mag)
 
         # innovation
@@ -121,13 +118,12 @@ class ESKF:
         # pressure→velocity decoupling: at high speed, pressure only
         # corrects position, not velocity.  Below the threshold speed
         # the full Kalman gain is used so pressure can fix IMU drift.
-        speed = np.linalg.norm(self.x_nom[3:6])
+        speed = float(abs(self.x_nom[1]))
         coupling = 1.0 / (1.0 + np.exp(
             ESKF_PRESSURE_VEL_COUPLING_SHARPNESS
             * (speed - ESKF_PRESSURE_VEL_COUPLING_SPEED)
         ))
-        K[3:6, 0] *= coupling  # scale velocity rows, pressure column only
-
+        K[1:5, 0] *= coupling  # scale vertical velocity row, pressure column only
         # error-state correction
         dx = K @ y
 
@@ -138,11 +134,12 @@ class ESKF:
         self.z_error_score = y / np.sqrt(S_diag_safe)
 
         # inject error into nominal state
-        # position and velocity: additive  (dx[0:6])
-        self.x_nom[0:6] += dx[0:6]
+        # position and velocity: additive
+        self.x_nom[0] += dx[0]
+        self.x_nom[1] += dx[1]
 
         # quaternion: multiplicative update  (dx[6:9] = dtheta)
-        dtheta = dx[6:9]
+        dtheta = dx[2:5]
         delta_q = q.from_rotation_vector(dtheta)
         qi = self._quat_idx
         quat = q.quaternion(

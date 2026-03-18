@@ -1,4 +1,3 @@
-from UKF.context import Context
 from UKF.eskf_context import ESKFContext
 from UKF.plotter import Plotter, ESKF_STATE_LABELS, ESKF_MEASUREMENT_LABELS
 from UKF.data_processor import DataProcessor
@@ -8,47 +7,60 @@ import numpy as np
 import yaml
 
 
-# Set to True to run the ESKF, False to run the UKF
-USE_ESKF = True
+# Set to False to run pressure-only measurements (skip magnetometer)
+USE_MAGNETOMETER = True
 
 
 def run():
     #launch_folder = Path("launch_data/government_work_launch_1_nc")
+    #launch_folder = Path("launch_data/government_work_launch_1_avab")
     #launch_folder = Path("launch_data/sailor")
     #launch_folder = Path("launch_data/lil_frank")
-    #launch_folder = Path("launch_data/test")
-    launch_folder = Path("launch_data/jackpot_ab")
+    #launch_folder = Path("launch_data/jackpot_1_nc")
+    #launch_folder = Path("launch_data/jackpot_1_ab")
+    launch_folder = Path("launch_data/jackpot_2_ab")
+    #launch_folder = Path("launch_data/jackpot_2_grave")
+    #launch_folder = Path("launch_data/jackpot_2_zombie") # bad pressure data
+    #launch_folder = Path("launch_data/orientation")
+
+    match str(launch_folder.name):
+        case "government_work_launch_1_nc":
+            min_t = 1273.42
+            max_t = 1297.4
+        case "government_work_launch_1_avab":
+            min_t = 902
+            max_t = 950
+        case "sailor":
+            min_t = 1360
+            max_t = 1410
+        case "lil_frank":
+            min_t = 1700
+            max_t = 1760
+        case "jackpot_1_nc":
+            min_t = 746
+            max_t = 800
+        case "jackpot_1_ab":
+            min_t = 1190
+            max_t = 1240
+        case "jackpot_2_ab":
+            min_t = 883.37
+            max_t = 905
+        case "jackpot_2_grave":
+            min_t = 1503.163
+            max_t = 1530
+        case "jackpot_2_zombie":
+            min_t = 1178
+            max_t = 1208
+        case "orientation":
+            min_t = 0
+            max_t = 20
+
     launch_log = np.array([
         launch_folder / "BMP581_data.csv",
         launch_folder / "ICM45686_data.csv",
         launch_folder / "MMC5983MA_data.csv",
     ], dtype=object)
-
-    # sailor
-    #min_t = 1360
-    #max_t = 1410
-
-    # gov work avab
-    #min_t = 902
-    #max_t = 1000 - 60
-
-    # gov work nc
-    #min_t = 1273.42 + 8
-    #max_t = 1297.4
     
-    # lil frank
-    #min_t = 1700
-    #max_t = 1760
-
-    # jackpot nc
-    #min_t = 746
-    #max_t = 800
-
-    # jackpot ab
-    min_t = 1190 - 50
-    max_t = 1240
-
-
     # read calibration.yaml from the launch folder (if present)
     cal_file = launch_folder / "calibration.yaml"
     if cal_file.exists():
@@ -59,20 +71,21 @@ def run():
         gyro_offset = cal.get("gyro_offset", [0, 0, 0])
         mag_offset = cal.get("mag_offset", [0, 0, 0])
         mag_scale = cal.get("mag_scale", [[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        hardware_version = cal.get("hardware")
     else:
         acc_offset = [0, 0, 0]
         gyro_offset = [0, 0, 0]
         mag_offset = [0, 0, 0]
         mag_scale = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+        hardware_version = 1.0
 
     # Export option: set to True to save `timestamps` and `X_data` to CSV after the run
-    EXPORT_STATES_ON_EXIT = False
-    EXPORT_STATES_FILENAME = "ukf_states.csv"
+    EXPORT_STATES_ON_EXIT = True
+    EXPORT_STATES_FILENAME = "eskf_states.csv"
 
     plotter = Plotter(
-        state_labels=ESKF_STATE_LABELS if USE_ESKF else None,
-        meas_labels=ESKF_MEASUREMENT_LABELS if USE_ESKF else None,
-        filter_name="ESKF" if USE_ESKF else "UKF",
+        state_labels=ESKF_STATE_LABELS,
+        meas_labels=(ESKF_MEASUREMENT_LABELS if USE_MAGNETOMETER else ["pressure"]),
     )
 
     # Try to load a reference altitude CSV from the launch folder.
@@ -97,12 +110,7 @@ def run():
         mag_cal_offset=mag_offset,
         mag_cal_scale=mag_scale,
     )
-    if USE_ESKF:
-        context = ESKFContext(data_processor, plotter, hw_version=1)
-        print("Running ESKF")
-    else:
-        context = Context(data_processor, plotter)
-        print("Running UKF")
+    context = ESKFContext(data_processor, plotter, hw_version=hardware_version, use_mag=USE_MAGNETOMETER)
     run_data_loop(context)
     # After the run ends, optionally export the collected UKF states/timestamps
     if EXPORT_STATES_ON_EXIT:

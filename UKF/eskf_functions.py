@@ -1,32 +1,4 @@
-"""
-ESKF dynamics, measurement model, and Jacobians (vertical-only position/velocity).
-
-Nominal state vector (6):
-    [pos_z, vel_z, quat(w,x,y,z)]
-    Indices: 0 pos_z, 1 vel_z, 2-5 quat(w,x,y,z)
-
-Error state vector (5):
-    [δpos_z, δvel_z, δθ(3)]
-    Indices: 0 δpos_z, 1 δvel_z, 2-4 δθ
-
-Control input (6):
-    [accel_x, accel_y, accel_z, gyro_x, gyro_y, gyro_z]
-    Raw IMU in sensor frame, with fixed biases already subtracted.
-
-Measurement (4):
-    [pressure, mag_x, mag_y, mag_z]
-
-Sensor-to-board rotation matrices
-----------------------------------
-Board frame: +X forward, +Y left, +Z up (right-handed).
-
-Two hardware versions exist:
-  v1: IMU rotated +45° on PCB → Rz(-45°) to get to board frame
-  v2: IMU rotated -45° on PCB → Rz(+45°) to get to board frame
-
-Magnetometer: same on both versions.
-  sensor-to-board = Rz(90°) @ Fz  →  board-to-sensor = transpose of that
-"""
+"""ESKF dynamics, measurement model, and Jacobians (vertical-only state)."""
 
 import numpy as np
 import quaternion as q
@@ -45,10 +17,10 @@ R_IMU_TO_BOARD_V2 = np.array([
 R_MAG_TO_BOARD_V2 = np.array([
     [ 0.0,  1.0,  0.0],
     [ -1.0, 0.0,  0.0],
-    [ 0.0,  0.0, -1.0],
+    [ 0.0,  0.0,  -1.0],
 ], dtype=np.float32)
 
-# ---- v1 hardware (legacy PCB — all existing datasets) ----
+# ---- v1 hardware (legacy PCB) ----
 R_IMU_TO_BOARD_V1 = np.array([
     [ _SQRT2_INV, _SQRT2_INV, 0.0],
     [-_SQRT2_INV, _SQRT2_INV, 0.0],
@@ -67,7 +39,7 @@ R_MAG_TO_BOARD = R_MAG_TO_BOARD_V2
 
 
 def skew(v):
-    """Returns the 3x3 skew-symmetric matrix of vector v."""
+    """3x3 skew-symmetric matrix of vector v."""
     return np.array([
         [0,    -v[2],  v[1]],
         [v[2],  0,    -v[0]],
@@ -81,14 +53,7 @@ def quat_to_rotation_matrix(quat):
 
 
 def _imu_to_board(accel_sensor, gyro_sensor, R_imu=None):
-    """
-    Transform raw IMU readings from sensor frame to board frame and convert units.
-
-    Accelerometer: g-units → m/s² (board frame)
-    Gyroscope:     deg/s   → rad/s (board frame)
-
-    Returns (accel_board_ms2, gyro_board_rads).
-    """
+    """Rotate IMU sensor-frame data into board frame and convert units."""
     if R_imu is None:
         R_imu = R_IMU_TO_BOARD
     accel_board = R_imu @ accel_sensor * GRAVITY  # g → m/s²
@@ -101,16 +66,7 @@ def _imu_to_board(accel_sensor, gyro_sensor, R_imu=None):
 # =====================================================================
 
 def nominal_predict(x_nom, u, dt, R_imu=None):
-    """
-    Propagate the 6-dim nominal state forward by dt.
-
-    Parameters
-    ----------
-    x_nom : ndarray (6,)
-    u     : ndarray (6,) — [accel_xyz, gyro_xyz] sensor frame, bias pre-subtracted
-    dt    : float
-    R_imu : ndarray (3,3) — sensor-to-board rotation (default: R_IMU_TO_BOARD)
-    """
+    """Propagate nominal state by dt using board-frame IMU inputs."""
     x = x_nom.copy()
 
     a_board_ms2, w_board_rads = _imu_to_board(u[0:3], u[3:6], R_imu)
@@ -141,13 +97,7 @@ def nominal_predict(x_nom, u, dt, R_imu=None):
 # =====================================================================
 
 def error_state_jacobian(x_nom, u, dt, R_imu=None):
-    """
-    Compute the discrete error-state transition Jacobian F_d (5x5).
-
-    Error state: [δpos_z, δvel_z, δθ(3)]
-
-    F_d ≈ I + F_c * dt  (first-order)
-    """
+    """Discrete error-state Jacobian F_d (5x5)."""
     a_board_ms2, w_board_rads = _imu_to_board(u[0:3], u[3:6], R_imu)
 
     quat = q.from_float_array(x_nom[2:6]).normalized()
@@ -167,32 +117,12 @@ def error_state_jacobian(x_nom, u, dt, R_imu=None):
     return F
 
 
-def error_state_jacobian_init(x_nom, u, dt, R_imu=None):
-    """Init-phase Jacobian: clamp pos/vel dynamics, only angular."""
-    _, w_board_rads = _imu_to_board(u[0:3], u[3:6], R_imu)
-
-    F = np.eye(5, dtype=np.float32)
-
-    # Clamp position/velocity error dynamics
-    F[0, 0] = 0.0
-    F[1, 1] = 0.0
-
-    # Angular dynamics
-    F[2:5, 2:5] += -skew(w_board_rads) * dt
-
-    return F
-
-
 # =====================================================================
 # Measurement model
 # =====================================================================
 
 def measurement_function(x_nom, init_pressure, mag_world, R_mag=None):
-    """
-    Compute predicted measurement from nominal state.
-
-    z_pred = [pressure, mag_sensor(3)]
-    """
+    """Predicted measurement: pressure + mag (sensor frame)."""
     if R_mag is None:
         R_mag = R_MAG_TO_BOARD
     altitude = x_nom[0]
@@ -202,9 +132,10 @@ def measurement_function(x_nom, init_pressure, mag_world, R_mag=None):
     pressure = init_pressure * np.power(1.0 - (altitude / 44330.0), 5.255876)
 
     # magnetometer: rotate world mag into board frame, then into mag sensor frame
+    # R_mag is stored as board→sensor (matches C eskf_config.c).
     R_board_to_world = quat_to_rotation_matrix(quat)
     mag_board = R_board_to_world.T @ mag_world
-    mag_sensor = R_mag.T @ mag_board
+    mag_sensor = R_mag @ mag_board
 
     return np.array([pressure, mag_sensor[0], mag_sensor[1], mag_sensor[2]], dtype=np.float32)
 
@@ -217,15 +148,7 @@ def measurement_function_pressure_only(x_nom, init_pressure):
 
 
 def measurement_jacobian(x_nom, init_pressure, mag_world, R_mag=None):
-    """
-    Compute the measurement Jacobian H (4x5).
-
-    Error state: [δpos_z, δvel_z, δθ(3)]
-
-    Non-zero blocks:
-        H[0, 2]    : ∂pressure/∂altitude
-        H[1:4, 6:9]: ∂mag_sensor/∂δθ
-    """
+    """Measurement Jacobian H (4x5)."""
     if R_mag is None:
         R_mag = R_MAG_TO_BOARD
     altitude = x_nom[0]
@@ -244,7 +167,7 @@ def measurement_jacobian(x_nom, init_pressure, mag_world, R_mag=None):
     # ∂mag_sensor/∂δθ
     R_b2w = quat_to_rotation_matrix(quat)
     mag_board = R_b2w.T @ mag_world
-    H[1:4, 2:5] = R_mag.T @ skew(mag_board)
+    H[1:4, 2:5] = R_mag @ skew(mag_board)
 
     return H
 
@@ -268,11 +191,5 @@ def measurement_jacobian_pressure_only(x_nom, init_pressure):
 # =====================================================================
 
 def process_noise_matrix(x_nom, u, dt, qvar):
-    """
-    Compute the discrete process noise covariance Q_d (5x5).
-
-    Parameters
-    ----------
-    qvar : ndarray (9,) — diagonal noise scaling per error-state dimension
-    """
+    """Discrete process noise covariance Q_d (5x5)."""
     return np.diag(qvar * dt).astype(np.float32)

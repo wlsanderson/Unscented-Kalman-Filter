@@ -76,24 +76,24 @@ ESKF_INITIAL_STATE_ESTIMATE = np.array([
 ESKF_INITIAL_STATE_COV = np.diag([
     1e-6,      # δposition
     1e-6,      # δvelocity
-    1e-4, 1e-4, 1e-4,      # δθ (angular error)
+    1e-3, 1e-3, 1e-3,      # δθ (angular error)
 ]).astype(np.float64)
 """ESKF error-state initial covariance (5x5)"""
 
 
 ESKF_Q_DIAG = np.array([
     1e-2,     # δposition
-    1e-2,     # δvelocity
-    1e-3, 1e-3, 1e-3,     # δθ
+    5e-2,     # δvelocity
+    1e-4, 1e-4, 1e-4,     # δθ
 ], dtype=np.float64)
 """Process noise diagonal (5 elements). Matches C eskf_q_diag."""
 
 ESKF_R_DIAG = np.array([
-    1e2, 5, 5, 5,
+    5e1, 1e-1, 1e-1, 1e-1,
 ], dtype=np.float64)
 """Measurement noise diagonal (4 elements). Matches C eskf_r_diag."""
 
 ESKF_R_DIAG_PRESSURE = np.array([
-    1e2,
+    5e1,
 ], dtype=np.float64)
 """Measurement noise diagonal for pressure-only mode (1 element)."""

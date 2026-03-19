@@ -40,11 +40,11 @@ def run():
             min_t = 746
             max_t = 800
         case "jackpot_1_ab":
-            min_t = 1190
-            max_t = 1240
+            min_t = 1205
+            max_t = 1222
         case "jackpot_2_ab":
             min_t = 883.37
-            max_t = 905
+            max_t = 901
         case "jackpot_2_grave":
             min_t = 1503.163
             max_t = 1530

@@ -1,17 +1,4 @@
-"""
-Error-State Extended Kalman Filter (ESKF).
-
-Nominal state (6): [pos_z, vel_z, quat(4)]
-Error state   (5): [δpos_z, δvel_z, δθ(3)]
-Measurement   (4): [pressure, mag_x, mag_y, mag_z]
-Control       (6): [accel_xyz, gyro_xyz] — calibrated IMU in sensor frame
-
-The filter operates by:
-    1. Propagating the nominal state with IMU inputs (nonlinear)
-    2. Propagating the error-state covariance with linearized Jacobians
-    3. Correcting with pressure + magnetometer measurements via linearized H
-    4. Injecting the error into the nominal state and resetting the error to zero
-"""
+"""Minimal Error-State Extended Kalman Filter (vertical position/velocity)."""
 
 import numpy as np
 import numpy.typing as npt
@@ -90,7 +77,6 @@ class ESKF:
 
         # propagate nominal state
         self.x_nom = self.nominal_predict_func(self.x_nom, u, dt)
-
         # error-state covariance propagation
         F_d = self.error_jacobian_func(self.x_nom, u, dt)
         Q_d = self.process_noise_func(self.x_nom, u, dt)
@@ -115,15 +101,14 @@ class ESKF:
         # Kalman gain
         K = self.P @ H.T @ S_inv
 
-        # pressure→velocity decoupling: at high speed, pressure only
-        # corrects position, not velocity.  Below the threshold speed
-        # the full Kalman gain is used so pressure can fix IMU drift.
+        # pressure decoupling: above threshold, pressure stops correcting velocity
+        # and quaternion states
         speed = float(abs(self.x_nom[1]))
         coupling = 1.0 / (1.0 + np.exp(
             ESKF_PRESSURE_VEL_COUPLING_SHARPNESS
             * (speed - ESKF_PRESSURE_VEL_COUPLING_SPEED)
         ))
-        K[1:5, 0] *= coupling  # scale vertical velocity row, pressure column only
+        K[1:5, 0] *= coupling
         # error-state correction
         dx = K @ y
 
@@ -138,7 +123,7 @@ class ESKF:
         self.x_nom[0] += dx[0]
         self.x_nom[1] += dx[1]
 
-        # quaternion: multiplicative update  (dx[6:9] = dtheta)
+        # quaternion: multiplicative update  (dx[2:5] = dtheta)
         dtheta = dx[2:5]
         delta_q = q.from_rotation_vector(dtheta)
         qi = self._quat_idx

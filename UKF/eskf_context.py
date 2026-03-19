@@ -10,6 +10,10 @@ IMU biases are handled offline via calibration.yaml — they are NOT
 computed or subtracted by the filter at runtime.
 """
 
+import numpy as np
+import numpy.typing as npt
+import quaternion as q
+
 from UKF.eskf import ESKF
 from UKF.data_processor import DataProcessor
 from UKF.constants import (
@@ -30,17 +34,12 @@ from UKF.eskf_functions import (
     nominal_predict,
     error_state_jacobian,
     process_noise_matrix,
-    quat_to_rotation_matrix,
     R_IMU_TO_BOARD_V1,
     R_IMU_TO_BOARD_V2,
     R_MAG_TO_BOARD_V1,
     R_MAG_TO_BOARD_V2,
 )
 from UKF.plotter import Plotter
-import numpy as np
-import numpy.typing as npt
-import quaternion as q
-import random
 
 
 INIT_DURATION_SECONDS = 0.5
@@ -131,24 +130,13 @@ class ESKFContext:
         self.eskf.P = np.copy(ESKF_INITIAL_STATE_COV).astype(np.float32)
 
         # set Q and R (single set, matching C)
-        if self._use_mag:
-            self.eskf.R = np.diag(ESKF_R_DIAG).astype(np.float32)
-        else:
-            self.eskf.R = np.diag(ESKF_R_DIAG_PRESSURE).astype(np.float32)
+        self.eskf.R = np.diag(ESKF_R_DIAG if self._use_mag else ESKF_R_DIAG_PRESSURE).astype(np.float32)
 
         # store mag world reference
         self._initial_mag = mag_world
 
         # inject function handles
-        self.eskf.nominal_predict_func = lambda x, u, dt: nominal_predict(x, u, dt, R_imu=self._R_imu)
-        self.eskf.error_jacobian_func = lambda x, u, dt: error_state_jacobian(x, u, dt, R_imu=self._R_imu)
-        self.eskf.process_noise_func = lambda x, u, dt: process_noise_matrix(x, u, dt, ESKF_Q_DIAG)
-        if self._use_mag:
-            self.eskf.measurement_func = lambda x, p, m: measurement_function(x, p, m, R_mag=self._R_mag)
-            self.eskf.measurement_jacobian_func = lambda x, p, m: measurement_jacobian(x, p, m, R_mag=self._R_mag)
-        else:
-            self.eskf.measurement_func = lambda x, p, m: measurement_function_pressure_only(x, p)
-            self.eskf.measurement_jacobian_func = lambda x, p, m: measurement_jacobian_pressure_only(x, p)
+        self._wire_filter_functions()
 
         self._initialised = True
 
@@ -195,16 +183,7 @@ class ESKFContext:
         ], dtype=np.float32)
 
         # ---- measurement (normalise mag) ----
-        if self._use_mag:
-            mag_norm = np.linalg.norm(mag_raw)
-            if mag_norm > 0:
-                mag_raw /= mag_norm
-            z = np.array([
-                pressure,
-                mag_raw[0], mag_raw[1], mag_raw[2],
-            ], dtype=np.float32)
-        else:
-            z = np.array([pressure], dtype=np.float32)
+        z = self._build_measurement(pressure, mag_raw)
 
         # ---- predict ----
         self.eskf.predict(dt, u)
@@ -240,11 +219,32 @@ class ESKFContext:
             return 0.0
         return 44330.0 * (1.0 - (p / p0) ** (1.0 / 5.255876))
 
-    def _calculate_initial_orientation(self, acc_sensor_raw, mag_sensor_raw):
-        """Compute initial quaternion (board → world) from averaged IMU (+mag if enabled).
+    def _build_measurement(self, pressure: float, mag_raw: np.ndarray) -> np.ndarray:
+        if not self._use_mag:
+            return np.array([pressure], dtype=np.float32)
 
-        Matches C ``calculate_initial_orientation()``.
-        """
+        mag = mag_raw.astype(np.float32)
+        mag_norm = np.linalg.norm(mag)
+        if mag_norm > 0:
+            mag /= mag_norm
+
+        return np.array([pressure, mag[0], mag[1], mag[2]], dtype=np.float32)
+
+    def _wire_filter_functions(self) -> None:
+        """Connect function hooks with the selected rotation matrices."""
+        self.eskf.nominal_predict_func = lambda x, u, dt: nominal_predict(x, u, dt, R_imu=self._R_imu)
+        self.eskf.error_jacobian_func = lambda x, u, dt: error_state_jacobian(x, u, dt, R_imu=self._R_imu)
+        self.eskf.process_noise_func = lambda x, u, dt: process_noise_matrix(x, u, dt, ESKF_Q_DIAG)
+
+        if self._use_mag:
+            self.eskf.measurement_func = lambda x, p, m: measurement_function(x, p, m, R_mag=self._R_mag)
+            self.eskf.measurement_jacobian_func = lambda x, p, m: measurement_jacobian(x, p, m, R_mag=self._R_mag)
+        else:
+            self.eskf.measurement_func = lambda x, p, m: measurement_function_pressure_only(x, p)
+            self.eskf.measurement_jacobian_func = lambda x, p, m: measurement_jacobian_pressure_only(x, p)
+
+    def _calculate_initial_orientation(self, acc_sensor_raw, mag_sensor_raw):
+        """Compute initial board→world quaternion from averaged IMU (+mag)."""
         # normalise
         acc_norm = np.linalg.norm(acc_sensor_raw)
         if acc_norm == 0:
@@ -260,17 +260,15 @@ class ESKFContext:
         else:
             mag_sensor_n = np.array([1.0, 0.0, 0.0], dtype=np.float32)
 
-        # rotate accel: sensor → board
+        # rotate sensor → board
         acc_board = self._R_imu @ acc_sensor_n
-
-        # rotate mag: sensor → board
-        mag_board = self._R_mag @ mag_sensor_n
+        mag_board = self._R_mag.T @ mag_sensor_n
 
         # roll/pitch from accel
         roll = np.arctan2(acc_board[1], acc_board[2])
         pitch = np.arctan2(-acc_board[0], np.sqrt(acc_board[1] ** 2 + acc_board[2] ** 2))
 
-        # yaw from mag (tilt-compensated) if available; otherwise set to 0
+        # yaw from mag (tilt-compensated) if available; otherwise 0
         sr, cr = np.sin(roll), np.cos(roll)
         sp, cp = np.sin(pitch), np.cos(pitch)
         mx, my, mz = mag_board

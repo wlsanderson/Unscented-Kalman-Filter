@@ -8,7 +8,7 @@ import yaml
 
 
 # Set to False to run pressure-only measurements (skip magnetometer)
-USE_MAGNETOMETER = True
+USE_MAGNETOMETER = False
 
 
 def run():
@@ -21,6 +21,7 @@ def run():
     launch_folder = Path("launch_data/jackpot_2_ab")
     #launch_folder = Path("launch_data/jackpot_2_grave")
     #launch_folder = Path("launch_data/jackpot_2_zombie") # bad pressure data
+    #launch_folder = Path("launch_data/kai")
     #launch_folder = Path("launch_data/orientation")
 
     match str(launch_folder.name):
@@ -51,6 +52,9 @@ def run():
         case "jackpot_2_zombie":
             min_t = 1178
             max_t = 1208
+        case "kai":
+            min_t = 1170
+            max_t = 1200
         case "orientation":
             min_t = 0
             max_t = 20
@@ -80,7 +84,7 @@ def run():
         hardware_version = 1.0
 
     # Export option: set to True to save `timestamps` and `X_data` to CSV after the run
-    EXPORT_STATES_ON_EXIT = True
+    EXPORT_STATES_ON_EXIT = False
     EXPORT_STATES_FILENAME = "eskf_states.csv"
 
     plotter = Plotter(

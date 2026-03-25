@@ -83,13 +83,13 @@ ESKF_INITIAL_STATE_COV = np.diag([
 
 ESKF_Q_DIAG = np.array([
     1e-2,     # δposition
-    5e-2,     # δvelocity
+    1e-1,     # δvelocity
     1e-4, 1e-4, 1e-4,     # δθ
 ], dtype=np.float64)
 """Process noise diagonal (5 elements). Matches C eskf_q_diag."""
 
 ESKF_R_DIAG = np.array([
-    5e1, 1e-1, 1e-1, 1e-1,
+    1e1, 1, 1, 1,
 ], dtype=np.float64)
 """Measurement noise diagonal (4 elements). Matches C eskf_r_diag."""
 

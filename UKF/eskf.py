@@ -137,9 +137,9 @@ class ESKF:
         self.x_nom[qi + 2] = q_new.y
         self.x_nom[qi + 3] = q_new.z
 
-        # covariance update (Joseph form for numerical stability)
-        I_KH = np.eye(self._dim_err) - K @ H
-        self.P = I_KH @ self.P @ I_KH.T + K @ self.R @ K.T
+        # Covariance Update: P = P - K @ (H @ P)
+        self.P = self.P - K @ H @ self.P
+        self.P = 0.5 * (self.P + self.P.T) # symmetrize for stability
 
     @property
     def X(self) -> npt.NDArray:

@@ -1,0 +1,10 @@
+calibration:
+  accel_offset: [0, 0, 0]
+  gyro_offset: [0, 0, 0]
+  mag_offset: [-3.2071, 25.7610, 2.1987]
+  mag_scale: [
+    [1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0],
+    ]
+  hardware: 1.0

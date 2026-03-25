@@ -28,11 +28,11 @@ from UKF.constants import (
 )
 from UKF.eskf_functions import (
     measurement_function,
-    measurement_jacobian,
+    measurement_jacobian_opt,
     measurement_function_pressure_only,
     measurement_jacobian_pressure_only,
     nominal_predict,
-    error_state_jacobian,
+    error_state_jacobian_opt,
     process_noise_matrix,
     R_IMU_TO_BOARD_V1,
     R_IMU_TO_BOARD_V2,
@@ -115,7 +115,7 @@ class ESKFContext:
         """
         n = self._accum_count
         avg_accel = self._accel_accum / n
-        avg_mag = self._mag_accum / n if self._use_mag else np.zeros(3, dtype=np.float32)
+        avg_mag = self._mag_accum / n
 
         self._initial_pressure = self._pressure_accum / n
 
@@ -159,8 +159,7 @@ class ESKFContext:
         # ---- accumulation phase ----
         if not self._initialised:
             self._accel_accum += accel_sensor
-            if self._use_mag:
-                self._mag_accum += mag_raw
+            self._mag_accum += mag_raw
             self._pressure_accum += pressure
             self._accum_count += 1
 
@@ -233,12 +232,12 @@ class ESKFContext:
     def _wire_filter_functions(self) -> None:
         """Connect function hooks with the selected rotation matrices."""
         self.eskf.nominal_predict_func = lambda x, u, dt: nominal_predict(x, u, dt, R_imu=self._R_imu)
-        self.eskf.error_jacobian_func = lambda x, u, dt: error_state_jacobian(x, u, dt, R_imu=self._R_imu)
+        self.eskf.error_jacobian_func = lambda x, u, dt: error_state_jacobian_opt(x, u, dt, R_imu=self._R_imu)
         self.eskf.process_noise_func = lambda x, u, dt: process_noise_matrix(x, u, dt, ESKF_Q_DIAG)
 
         if self._use_mag:
             self.eskf.measurement_func = lambda x, p, m: measurement_function(x, p, m, R_mag=self._R_mag)
-            self.eskf.measurement_jacobian_func = lambda x, p, m: measurement_jacobian(x, p, m, R_mag=self._R_mag)
+            self.eskf.measurement_jacobian_func = lambda x, p, m: measurement_jacobian_opt(x, p, m, R_mag=self._R_mag)
         else:
             self.eskf.measurement_func = lambda x, p, m: measurement_function_pressure_only(x, p)
             self.eskf.measurement_jacobian_func = lambda x, p, m: measurement_jacobian_pressure_only(x, p)
@@ -252,13 +251,10 @@ class ESKFContext:
 
         acc_sensor_n = acc_sensor_raw / acc_norm
 
-        if self._use_mag:
-            mag_norm = np.linalg.norm(mag_sensor_raw)
-            if mag_norm == 0:
-                raise ValueError("Zero-length sensor vector passed to initialization")
-            mag_sensor_n = mag_sensor_raw / mag_norm
-        else:
-            mag_sensor_n = np.array([1.0, 0.0, 0.0], dtype=np.float32)
+        mag_norm = np.linalg.norm(mag_sensor_raw)
+        if mag_norm == 0:
+            raise ValueError("Zero-length sensor vector passed to initialization")
+        mag_sensor_n = mag_sensor_raw / mag_norm
 
         # rotate sensor → board
         acc_board = self._R_imu @ acc_sensor_n
@@ -272,12 +268,9 @@ class ESKFContext:
         sr, cr = np.sin(roll), np.cos(roll)
         sp, cp = np.sin(pitch), np.cos(pitch)
         mx, my, mz = mag_board
-        if self._use_mag:
-            mx2 = mx * cp + mz * sp
-            my2 = mx * sr * sp + my * cr - mz * sr * cp
-            yaw = np.arctan2(-my2, mx2)
-        else:
-            yaw = 0.0
+        mx2 = mx * cp + mz * sp
+        my2 = mx * sr * sp + my * cr - mz * sr * cp
+        yaw = np.arctan2(-my2, mx2)
 
         # Euler → quaternion (ZYX)
         cr2, sr2 = np.cos(roll * 0.5), np.sin(roll * 0.5)
@@ -292,11 +285,8 @@ class ESKFContext:
         init_quat = q.quaternion(w, x, y, z).normalized()
 
         # rotate mag to world frame: q @ [0, mag_board] @ q*
-        if self._use_mag:
-            mag_board_q = q.quaternion(0.0, *mag_board)
-            mag_world_q = init_quat * mag_board_q * init_quat.conjugate()
-            mag_world = np.array([mag_world_q.x, mag_world_q.y, mag_world_q.z], dtype=np.float32)
-        else:
-            mag_world = np.zeros(3, dtype=np.float32)
+        mag_board_q = q.quaternion(0.0, *mag_board)
+        mag_world_q = init_quat * mag_board_q * init_quat.conjugate()
+        mag_world = np.array([mag_world_q.x, mag_world_q.y, mag_world_q.z], dtype=np.float32)
 
         return init_quat, mag_world

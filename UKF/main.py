@@ -8,7 +8,7 @@ import yaml
 
 
 # Set to False to run pressure-only measurements (skip magnetometer)
-USE_MAGNETOMETER = True
+USE_MAGNETOMETER = False
 
 
 def run():

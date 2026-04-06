@@ -152,7 +152,7 @@ def error_state_jacobian_opt(x_nom, u, dt, R_imu=None):
 # Measurement model
 # =====================================================================
 
-def measurement_function(x_nom, init_pressure, mag_world, R_mag=None):
+def measurement_function(x_nom, init_alt, mag_world, R_mag=None):
     """Predicted measurement: pressure + mag (sensor frame)."""
     if R_mag is None:
         R_mag = R_MAG_TO_BOARD
@@ -160,7 +160,7 @@ def measurement_function(x_nom, init_pressure, mag_world, R_mag=None):
     quat = q.from_float_array(x_nom[2:6])
 
     # barometric pressure from altitude
-    pressure = init_pressure * np.power(1.0 - (altitude / 44330.0), 5.255876)
+    pressure = np.float32(101325.0) * np.power(1.0 - ((altitude + init_alt) / 44330.8), 5.255883)
 
     # magnetometer: rotate world mag into board frame, then into mag sensor frame
     mag_world_q = q.from_float_array([0, mag_world[0], mag_world[1], mag_world[2]])
@@ -171,14 +171,14 @@ def measurement_function(x_nom, init_pressure, mag_world, R_mag=None):
     return np.array([pressure, mag_sensor[0], mag_sensor[1], mag_sensor[2]], dtype=np.float32)
 
 
-def measurement_function_pressure_only(x_nom, init_pressure):
+def measurement_function_pressure_only(x_nom, init_alt):
     """Pressure-only predicted measurement (1-dim)."""
     altitude = x_nom[0]
-    pressure = init_pressure * np.power(1.0 - (altitude / 44330.0), 5.255876)
+    pressure = np.float32(101325.0) * np.power(1.0 - ((altitude + init_alt) / 44330.8), 5.255883)
     return np.array([pressure], dtype=np.float32)
 
 
-def measurement_jacobian(x_nom, init_pressure, mag_world, R_mag):
+def measurement_jacobian(x_nom, init_alt, mag_world, R_mag):
     """Measurement Jacobian H (4x5). Only used as reference
     to show math, below is measurement_jacobian_opt which is the unrolled
     version of this function, for use in actual implementation."""
@@ -188,9 +188,9 @@ def measurement_jacobian(x_nom, init_pressure, mag_world, R_mag):
     H = np.zeros((4, 5), dtype=np.float32)
 
     # ∂pressure/∂altitude
-    base = 1.0 - altitude / 44330.0
+    base = 1.0 - (altitude + init_alt) / 44330.8
     if base > 0:
-        dp_dalt = init_pressure * 5.255876 * np.power(base, 4.255876) * (-1.0 / 44330.0)
+        dp_dalt = 101325.0 * 5.255883 * np.power(base, 4.255883) * (-1.0 / 44330.8)
     else:
         dp_dalt = 0.0
     H[0, 0] = dp_dalt
@@ -201,7 +201,7 @@ def measurement_jacobian(x_nom, init_pressure, mag_world, R_mag):
     H[1:4, 2:5] = R_mag @ skew(mag_board)
     return H
 
-def measurement_jacobian_opt(x_nom, init_pressure, mag_world, R_mag):
+def measurement_jacobian_opt(x_nom, init_alt, mag_world, R_mag):
     """Discrete Measurement Jacobian H (4x5)."""
     altitude = x_nom[0]
     
@@ -213,10 +213,10 @@ def measurement_jacobian_opt(x_nom, init_pressure, mag_world, R_mag):
     H = np.zeros((4, 5), dtype=np.float32)
 
     # 1. ∂pressure/∂altitude (Simplified constants)
-    base = 1.0 - altitude / 44330.0
+    base = 1.0 - (altitude + init_alt) / 44330.8
     if base > 0:
-        # Pre-calculated 5.255876 * (-1.0 / 44330.0) = -0.0001185625
-        H[0, 0] = init_pressure * -0.0001185625 * np.power(base, 4.255876)
+        # Pre-calculated 101325 * 5.255883 * (-1.0 / 44330.8) = -12.01314537466
+        H[0, 0] = -12.01314537466 * np.power(base, 4.255883)
     else:
         H[0, 0] = 0.0
 
@@ -245,14 +245,14 @@ def measurement_jacobian_opt(x_nom, init_pressure, mag_world, R_mag):
     return H
 
 
-def measurement_jacobian_pressure_only(x_nom, init_pressure):
+def measurement_jacobian_pressure_only(x_nom, init_alt):
     """Pressure-only measurement Jacobian H (1x5)."""
     altitude = x_nom[0]
     H = np.zeros((1, 5), dtype=np.float32)
 
-    base = 1.0 - altitude / 44330.0
+    base = 1.0 - (altitude + init_alt) / 44330.8
     if base > 0:
-        dp_dalt = init_pressure * 5.255876 * np.power(base, 4.255876) * (-1.0 / 44330.0)
+        dp_dalt = 101325 * 5.255883 * np.power(base, 4.255883) * (-1.0 / 44330.8)
     else:
         dp_dalt = 0.0
     H[0, 0] = dp_dalt

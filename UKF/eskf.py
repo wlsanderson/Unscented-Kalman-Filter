@@ -82,14 +82,14 @@ class ESKF:
         Q_d = self.process_noise_func(self.x_nom, u, dt)
         self.P = F_d @ self.P @ F_d.T + Q_d
 
-    def update(self, z: npt.NDArray, init_pressure: float, init_mag: npt.NDArray):
+    def update(self, z: npt.NDArray, init_alt: float, init_mag: npt.NDArray):
         """ESKF measurement update step."""
         # predicted measurement
-        z_pred = self.measurement_func(self.x_nom, init_pressure, init_mag)
+        z_pred = self.measurement_func(self.x_nom, init_alt, init_mag)
         self.pred_z = z_pred
 
         # measurement Jacobian (4x5)
-        H = self.measurement_jacobian_func(self.x_nom, init_pressure, init_mag)
+        H = self.measurement_jacobian_func(self.x_nom, init_alt, init_mag)
 
         # innovation
         y = z - z_pred

@@ -54,7 +54,7 @@ class ESKFContext:
         "shutdown_requested",
         "_plotter",
         "_timestamp",
-        "_initial_pressure",
+        "_initial_altitude",
         "_initial_mag",
         "_max_altitude",
         "_max_velocity",
@@ -88,7 +88,7 @@ class ESKFContext:
         self._plotter = plotter
 
         self.shutdown_requested: bool = False
-        self._initial_pressure: np.float32 = np.float32(0.0)
+        self._initial_altitude: np.float32 = np.float32(0.0)
         self._initial_mag: npt.NDArray = np.zeros(3, dtype=np.float32)
         self._max_velocity: np.float32 = np.float32(0.0)
         self._max_altitude: np.float32 = np.float32(0.0)
@@ -117,7 +117,7 @@ class ESKFContext:
         avg_accel = self._accel_accum / n
         avg_mag = self._mag_accum / n
 
-        self._initial_pressure = self._pressure_accum / n
+        self._initial_altitude = np.float32(44330.8 * (1.0 - np.pow((self._pressure_accum / n) / 101325.0, 0.190263)))
 
         # compute initial orientation
         init_quat, mag_world = self._calculate_initial_orientation(avg_accel, avg_mag)
@@ -169,7 +169,7 @@ class ESKFContext:
                     self._plotter.state_times.append(self._timestamp)
                 print(
                     f"ESKF: initialised from {self._accum_count} samples\n"
-                    f"  initial pressure: {self._initial_pressure:.2f}\n"
+                    f"  initial pressure: {self._initial_altitude:.2f}\n"
                     f"  initial quat: {self.eskf.x_nom[2:6]}\n"
                     f"  mag world: {self._initial_mag}"
                 )
@@ -192,7 +192,7 @@ class ESKFContext:
             self._plotter.X_data_pred.append(self.eskf.x_nom.copy())
 
         # ---- update ----
-        self.eskf.update(z, self._initial_pressure, self._initial_mag)
+        self.eskf.update(z, self._initial_altitude, self._initial_mag)
 
         if self._plotter:
             self._plotter.X_data.append(self.eskf.x_nom.copy())
@@ -213,7 +213,7 @@ class ESKFContext:
     def _compute_pressure_alt(self) -> float:
         """Compute altitude from raw pressure, zeroed to launch-pad level."""
         p = float(self.data_processor.measurements[0])
-        p0 = float(self._initial_pressure)
+        p0 = float(self._initial_altitude)
         if p <= 0 or p0 <= 0:
             return 0.0
         return 44330.0 * (1.0 - (p / p0) ** (1.0 / 5.255876))

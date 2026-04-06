@@ -8,7 +8,7 @@ import yaml
 
 
 # Set to False to run pressure-only measurements (skip magnetometer)
-USE_MAGNETOMETER = False
+USE_MAGNETOMETER = True
 
 
 def run():
@@ -18,11 +18,11 @@ def run():
     #launch_folder = Path("launch_data/lil_frank")
     #launch_folder = Path("launch_data/jackpot_1_nc")
     #launch_folder = Path("launch_data/jackpot_1_ab")
-    launch_folder = Path("launch_data/jackpot_2_ab")
+    #launch_folder = Path("launch_data/jackpot_2_ab")
     #launch_folder = Path("launch_data/jackpot_2_grave")
     #launch_folder = Path("launch_data/jackpot_2_zombie") # bad pressure data
     #launch_folder = Path("launch_data/kai")
-    #launch_folder = Path("launch_data/orientation")
+    launch_folder = Path("launch_data/jackpot_3_ab")
 
     match str(launch_folder.name):
         case "government_work_launch_1_nc":
@@ -44,7 +44,7 @@ def run():
             min_t = 1205
             max_t = 1222
         case "jackpot_2_ab":
-            min_t = 883.37
+            min_t = 883.37 - 800
             max_t = 901
         case "jackpot_2_grave":
             min_t = 1503.163
@@ -55,9 +55,9 @@ def run():
         case "kai":
             min_t = 1170
             max_t = 1200
-        case "orientation":
-            min_t = 0
-            max_t = 20
+        case "jackpot_3_ab":
+            min_t = 780
+            max_t = 805
 
     launch_log = np.array([
         launch_folder / "BMP581_data.csv",
